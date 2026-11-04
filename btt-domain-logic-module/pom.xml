@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.github.evseevda</groupId>
-    <artifactId>domain-logic-module</artifactId>
+    <artifactId>btt-domain-logic-module</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>domain-logic-module</name>
     <description>domain-logic-module</description>

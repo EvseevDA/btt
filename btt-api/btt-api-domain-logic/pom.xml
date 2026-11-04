@@ -1,0 +1,57 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.github.evseevda</groupId>
+        <artifactId>btt-api</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>btt-api-domain-logic</artifactId>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <openapi-generator.version>7.4.0</openapi-generator.version> <!-- Используйте актуальную версию -->
+        <jackson-databind.version>0.2.6</jackson-databind.version>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi-generator.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Путь к вашему главному YAML файлу -->
+                            <inputSpec>${project.basedir}/src/main/resources/openapi/api.yaml</inputSpec>
+
+                            <!-- Генератор для Spring (можно изменить на jaxrs, java, и т.д.) -->
+                            <generatorName>spring</generatorName>
+
+                            <!-- Настройки пакетов -->
+                            <apiPackage>com.github.evseevda.domainlogic.api</apiPackage>
+                            <modelPackage>com.github.evseevda.domainlogic.model</modelPackage>
+
+                            <configOptions>
+                                <!-- Генерировать только интерфейсы контроллеров, без логики -->
+                                <interfaceOnly>true</interfaceOnly>
+                                <!-- Выключить генерацию дефолтного кода интерфейсов АПИ -->
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <!-- Использовать Spring Boot 3.x (Jakarta API вместо javax) -->
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <!-- Включить валидацию (@Valid, @NotNull) -->
+                                <useBeanValidation>true</useBeanValidation>
+                                <performBeanValidation>true</performBeanValidation>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

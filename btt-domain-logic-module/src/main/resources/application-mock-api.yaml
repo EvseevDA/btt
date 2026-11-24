@@ -2,6 +2,8 @@ server:
   address: 127.0.0.1
 
 spring:
+  flyway:
+    enabled: false
   autoconfigure:
     exclude:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration

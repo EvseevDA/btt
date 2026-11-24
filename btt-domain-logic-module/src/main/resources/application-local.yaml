@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:${BTT_DB_PORT:5433}/btt_business_logic_module_db}
+    username: ${SPRING_DATASOURCE_USERNAME:${BTT_DB_USER:btt}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${BTT_DB_PASSWORD:btt_local}}

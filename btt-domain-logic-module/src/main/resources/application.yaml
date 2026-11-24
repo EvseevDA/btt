@@ -1,3 +1,6 @@
 spring:
   application:
     name: domain-logic-module
+  jpa:
+    hibernate:
+      ddl-auto: validate

@@ -9,10 +9,9 @@
     <artifactId>btt-api-domain-logic</artifactId>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <openapi-generator.version>7.4.0</openapi-generator.version> <!-- Используйте актуальную версию -->
-        <jackson-databind.version>0.2.6</jackson-databind.version>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <openapi-generator.version>7.4.0</openapi-generator.version>
     </properties>
 
     <build>
@@ -40,6 +39,7 @@
                             <configOptions>
                                 <!-- Генерировать только интерфейсы контроллеров, без логики -->
                                 <interfaceOnly>true</interfaceOnly>
+                                <useTags>true</useTags>
                                 <!-- Выключить генерацию дефолтного кода интерфейсов АПИ -->
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <!-- Использовать Spring Boot 3.x (Jakarta API вместо javax) -->

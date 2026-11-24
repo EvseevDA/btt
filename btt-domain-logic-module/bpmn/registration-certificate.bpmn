@@ -1,0 +1,123 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_registration-certificate" targetNamespace="https://btt.github.io/processes">
+  <bpmn:process id="registration-certificate" name="Выдача, изменение и аннулирование свидетельства" isExecutable="false">
+    <bpmn:documentation>При одобрении первичной регистрации перевозчик получает статус зарегистрированного, создаются свидетельство и версия № 1. При изменении предыдущая версия указывает на заменяемую, новая версия становится текущей. При отмене по инициативе перевозчика или администрации меняются статусы перевозчика и свидетельства, текущая версия архивируется. При отказе в отмене регистрация сохраняется.</bpmn:documentation>
+    <bpmn:startEvent id="Start" name="Решение одобрено">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="Type" name="Тип заявления">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="Issue" name="Зарегистрировать перевозчика, выдать свидетельство">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Revise" name="Архивировать текущую и создать новую версию">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Revoke" name="Отменить регистрацию, аннулировать свидетельство и архивировать версию">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="Join">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End" name="Решение применено">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start" targetRef="Type" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Type" targetRef="Issue" name="Регистрация" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Type" targetRef="Revise" name="Изменение" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Type" targetRef="Revoke" name="Отмена регистрации" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Issue" targetRef="Join" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Revise" targetRef="Join" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Revoke" targetRef="Join" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="Join" targetRef="End" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_registration-certificate">
+    <bpmndi:BPMNPlane id="Plane_registration-certificate" bpmnElement="registration-certificate">
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start">
+        <dc:Bounds x="80" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="24.0" y="275" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Type" bpmnElement="Type" isMarkerVisible="true">
+        <dc:Bounds x="215" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="166.0" y="282" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Issue" bpmnElement="Issue">
+        <dc:Bounds x="415" y="76" width="130" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Revise" bpmnElement="Revise">
+        <dc:Bounds x="415" y="216" width="130" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Revoke" bpmnElement="Revoke">
+        <dc:Bounds x="415" y="356" width="130" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Join" bpmnElement="Join" isMarkerVisible="true">
+        <dc:Bounds x="655" y="225" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End" bpmnElement="End">
+        <dc:Bounds x="770" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="714.0" y="275" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow_1">
+        <di:waypoint x="116" y="250.0" />
+        <di:waypoint x="215" y="250.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow_2">
+        <di:waypoint x="240" y="225" />
+        <di:waypoint x="240" y="110" />
+        <di:waypoint x="415" y="110" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="270" y="84" width="110" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow_3">
+        <di:waypoint x="265" y="250.0" />
+        <di:waypoint x="415" y="250.0" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="280" y="221" width="110" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow_4">
+        <di:waypoint x="240" y="275" />
+        <di:waypoint x="240" y="390" />
+        <di:waypoint x="415" y="390" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="280" y="358" width="110" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow_5">
+        <di:waypoint x="545" y="110" />
+        <di:waypoint x="680" y="110" />
+        <di:waypoint x="680" y="225" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow_6">
+        <di:waypoint x="545" y="250.0" />
+        <di:waypoint x="655" y="250.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_7" bpmnElement="Flow_7">
+        <di:waypoint x="545" y="390" />
+        <di:waypoint x="680" y="390" />
+        <di:waypoint x="680" y="275" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_8" bpmnElement="Flow_8">
+        <di:waypoint x="705" y="250.0" />
+        <di:waypoint x="770" y="250.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

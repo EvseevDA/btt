@@ -1,0 +1,128 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions_organization_registration" targetNamespace="https://btt.github.io/processes">
+  <bpmn:message id="Message_Decision" name="blm_organization_registration_decision_submitted">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="blm_organization_registration" name="Подключение организации к порталу" isExecutable="true">
+    <bpmn:documentation>Заявку подаёт зарегистрированный пользователь от имени существующего юридического лица. Администрация портала проверяет реквизиты, отсутствие дубликата и полномочия заявителя. Решение принимает сотрудник с разрешением organization.registration.decide. Бэкенд запускает процесс после сохранения заявки. Перед отправкой решения из формы API проверяет полномочия проверяющего и состояние заявки.</bpmn:documentation>
+    <bpmn:startEvent id="Start" name="Заявка подана">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:intermediateCatchEvent id="WaitDecision" name="Решение получено">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_Decision" messageRef="Message_Decision" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:exclusiveGateway id="Outcome" name="Решение">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Approve" name="Создать организацию и назначить первого представителя">
+      <bpmn:documentation>Создать организацию, связь с первым представителем и сохранить результат в одной транзакции.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_organization_registration_approve" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Reject" name="Зафиксировать отказ в подключении">
+      <bpmn:documentation>Сохранить проверяющего, причину и итог заявки. Аккаунт пользователя продолжает работать без новой привязки.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_organization_registration_reject" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Approved" name="Подтверждено">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="Rejected" name="Отклонено">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start" targetRef="WaitDecision" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="WaitDecision" targetRef="Outcome" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Outcome" targetRef="Approve" name="Одобрить">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Outcome" targetRef="Reject" name="Отказать">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Approve" targetRef="Approved" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Reject" targetRef="Rejected" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_organization_registration">
+    <bpmndi:BPMNPlane id="Plane_organization_registration" bpmnElement="blm_organization_registration">
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start">
+        <dc:Bounds x="80" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="24.0" y="205" width="148" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WaitDecision" bpmnElement="WaitDecision">
+        <dc:Bounds x="250" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="194.0" y="205" width="148" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Outcome" bpmnElement="Outcome" isMarkerVisible="true">
+        <dc:Bounds x="435" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="330" y="210" width="148" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Approve" bpmnElement="Approve">
+        <dc:Bounds x="620" y="74" width="165" height="72" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Reject" bpmnElement="Reject">
+        <dc:Bounds x="620" y="218" width="165" height="72" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Approved" bpmnElement="Approved">
+        <dc:Bounds x="865" y="92" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="809.0" y="135" width="148" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Rejected" bpmnElement="Rejected">
+        <dc:Bounds x="865" y="236" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="809.0" y="279" width="148" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow_1">
+        <di:waypoint x="116" y="180.0" />
+        <di:waypoint x="250" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow_2">
+        <di:waypoint x="286" y="180.0" />
+        <di:waypoint x="435" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow_3">
+        <di:waypoint x="460" y="155" />
+        <di:waypoint x="460" y="110" />
+        <di:waypoint x="620" y="110" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="500" y="89" width="90" height="20" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow_4">
+        <di:waypoint x="460" y="205" />
+        <di:waypoint x="460" y="254" />
+        <di:waypoint x="620" y="254" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="500" y="232" width="90" height="20" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow_5">
+        <di:waypoint x="785" y="110.0" />
+        <di:waypoint x="865" y="110.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow_6">
+        <di:waypoint x="785" y="254.0" />
+        <di:waypoint x="865" y="254.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

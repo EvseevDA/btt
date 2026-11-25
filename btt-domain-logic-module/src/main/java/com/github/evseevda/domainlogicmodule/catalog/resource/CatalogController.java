@@ -7,6 +7,8 @@ import com.github.evseevda.domainlogic.model.TransporterDto;
 import com.github.evseevda.domainlogic.model.TransporterLicenseDto;
 import com.github.evseevda.domainlogic.model.TransporterOrganizationDto;
 
+import com.github.evseevda.domainlogicmodule.organization.service.OrganizationDirectory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +18,11 @@ import java.util.UUID;
 
 @RestController
 public class CatalogController implements CatalogApi {
+    private final ObjectProvider<OrganizationDirectory> organizations;
+
+    public CatalogController(ObjectProvider<OrganizationDirectory> organizations) {
+        this.organizations = organizations;
+    }
 
     @Override
     public ResponseEntity<RouteDto> getRoute(UUID id) {
@@ -34,7 +41,9 @@ public class CatalogController implements CatalogApi {
 
     @Override
     public ResponseEntity<TransporterOrganizationDto> getTransporterOrganization(UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = organizations.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.get(id));
     }
 
     @Override
@@ -57,8 +66,11 @@ public class CatalogController implements CatalogApi {
     }
 
     @Override
-    public ResponseEntity<List<TransporterOrganizationDto>> listTransporterOrganizations(Integer offset, Integer limit) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    public ResponseEntity<List<TransporterOrganizationDto>> listTransporterOrganizations(
+            String search, Integer offset, Integer limit) {
+        var service = organizations.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.list(search, offset, limit));
     }
 
     @Override

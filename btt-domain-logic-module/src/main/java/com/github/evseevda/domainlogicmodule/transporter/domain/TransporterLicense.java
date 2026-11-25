@@ -46,6 +46,10 @@ public class TransporterLicense {
     @Column(name = "status", nullable = false)
     private TransporterLicenseStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "transporter_version_id", nullable = false)
+    private TransporterVersion transporterVersion;
+
     protected TransporterLicense() {
     }
 }

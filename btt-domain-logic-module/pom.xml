@@ -139,6 +139,18 @@
     </dependencyManagement>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>bpmn</directory>
+                <targetPath>bpmn</targetPath>
+                <includes>
+                    <include>blm_*.bpmn</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

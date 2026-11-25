@@ -6,7 +6,9 @@ public enum TransporterRequestStatus {
     UNDER_REVIEW(2),
     APPROVED(3),
     REJECTED(4),
-    WITHDRAWN(5);
+    WITHDRAWN(5),
+    AWAITING_APPROVAL(6),
+    REVISION_REQUIRED(7);
 
     private final int id;
 

@@ -52,6 +52,22 @@ public class Decision {
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_id")
+    private UserAccount approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "return_reason", columnDefinition = "text")
+    private String returnReason;
+
+    @Column(name = "change_description", columnDefinition = "text")
+    private String changeDescription;
+
+    @Column(name = "revision", nullable = false)
+    private int revision;
+
     protected Decision() {
     }
 }

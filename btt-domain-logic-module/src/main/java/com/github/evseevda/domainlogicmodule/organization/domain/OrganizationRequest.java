@@ -61,6 +61,9 @@ public class OrganizationRequest {
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
 
+    @Column(name = "pending_approval")
+    private Boolean pendingApproval;
+
     protected OrganizationRequest() {
     }
 }

@@ -1205,8 +1205,39 @@ paths:
           "$ref": "#/components/responses/Conflict"
         '501':
           "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/transporter-organizations/{organizationId}/members/{userId}/permissions":
+    put:
+      tags: [Organizations]
+      operationId: updateOrganizationMemberPermissions
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: userId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/OrganizationMemberPermissions"}
+      responses:
+        '204':
+          description: Полномочия обновлены
+        '403':
+          description: Требуется право подтверждать сотрудников в данной организации
+        '404':
+          "$ref": "#/components/responses/NotFound"
 components:
   schemas:
+    OrganizationMemberPermissions:
+      type: object
+      required: [canRepresent, canConfirmMembers]
+      properties:
+        canRepresent: {type: boolean}
+        canConfirmMembers: {type: boolean}
     Login:
       type: object
       required: [username, password]

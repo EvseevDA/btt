@@ -3,6 +3,7 @@ package com.github.evseevda.domainlogicmodule.organization.resource;
 import com.github.evseevda.domainlogic.api.OrganizationsApi;
 import com.github.evseevda.domainlogic.model.JoinOrganization;
 import com.github.evseevda.domainlogic.model.OrganizationRequestDto;
+import com.github.evseevda.domainlogic.model.OrganizationMemberPermissions;
 import com.github.evseevda.domainlogic.model.RegisterOrganization;
 import com.github.evseevda.domainlogic.model.ReviewOrganizationRequest;
 import com.github.evseevda.domainlogicmodule.organization.service.OrganizationRequests;
@@ -30,7 +31,18 @@ public class OrganizationsController implements OrganizationsApi {
 
     @Override
     public ResponseEntity<OrganizationRequestDto> submitOrganizationMembership(JoinOrganization form) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.status(HttpStatus.CREATED).body(service.join(form));
+    }
+
+    @Override
+    public ResponseEntity<Void> updateOrganizationMemberPermissions(UUID organizationId, UUID userId,
+                                                                     OrganizationMemberPermissions permissions) {
+        var service = requests.getIfAvailable();
+        if (service == null) return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        service.updatePermissions(organizationId, userId, permissions.getCanRepresent(), permissions.getCanConfirmMembers());
+        return ResponseEntity.noContent().build();
     }
 
     @Override

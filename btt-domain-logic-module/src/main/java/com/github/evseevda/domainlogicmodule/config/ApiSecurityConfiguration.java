@@ -2,6 +2,7 @@ package com.github.evseevda.domainlogicmodule.config;
 
 import com.github.evseevda.domainlogicmodule.identity.service.AccountService;
 import com.github.evseevda.domainlogicmodule.identity.service.AccountTokens;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,7 @@ class ApiSecurityConfiguration {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                 }))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users", "/api/v1/auth/token").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())

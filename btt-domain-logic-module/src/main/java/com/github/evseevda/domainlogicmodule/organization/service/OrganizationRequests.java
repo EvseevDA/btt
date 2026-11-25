@@ -17,7 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -117,6 +121,22 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return request;
     }
 
+    @Transactional(readOnly = true)
+    public List<OrganizationRequestDto> list(Integer type, Integer status, int offset, int limit) {
+        UUID actor = CurrentAccount.id();
+        return db.sql("""
+                SELECT r.* FROM organization_request r
+                WHERE (r.applicant_id = :actor OR (r.type = 1 AND :mayReview)
+                    OR (r.type = 2 AND EXISTS (SELECT 1 FROM transporter_organization_users m
+                        WHERE m.organization_id = r.organization_id AND m.user_id = :actor AND m.can_confirm_members)))
+                  AND (:type::integer IS NULL OR r.type = :type::integer)
+                  AND (:status::integer IS NULL OR r.status = :status::integer)
+                ORDER BY r.created_at DESC, r.id LIMIT :limit OFFSET :offset
+                """).param("actor", actor).param("mayReview", CurrentAccount.hasPermission(REVIEW_REGISTRATION))
+                .param("type", type).param("status", status).param("offset", offset).param("limit", limit)
+                .query((rs, row) -> request(rs)).list();
+    }
+
     @Transactional
     public OrganizationRequestDto decide(UUID id, ReviewOrganizationRequest review) {
         UUID reviewer = CurrentAccount.id();
@@ -211,16 +231,20 @@ public class OrganizationRequests implements WorkflowJobHandler {
 
     private OrganizationRequestDto find(UUID id, boolean lock) {
         return db.sql("SELECT * FROM organization_request WHERE id = :id" + (lock ? " FOR UPDATE" : ""))
-                .param("id", id).query((rs, row) -> {
-                    int type = rs.getInt("type");
-                    return new OrganizationRequestDto(id, rs.getObject("applicant_id", UUID.class), type,
-                            rs.getInt("status"), rs.getObject("created_at", LocalDateTime.class).toString())
-                            .organizationId(rs.getObject("organization_id", UUID.class))
-                            .decidedById(rs.getObject("decided_by_id", UUID.class))
-                            .decisionComment(rs.getString("decision_comment"))
-                            .organizationData(type == 1 ? new RegisterOrganization(rs.getString("organization_name"),
-                                    rs.getString("inn"), rs.getString("ogrn"), rs.getString("legal_address"),
-                                    rs.getString("authority_evidence")) : null);
-                }).optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .param("id", id).query((rs, row) -> request(rs)).optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private static OrganizationRequestDto request(ResultSet rs) throws SQLException {
+        int type = rs.getInt("type");
+        return new OrganizationRequestDto(rs.getObject("id", UUID.class), rs.getObject("applicant_id", UUID.class),
+                type, rs.getInt("status"), rs.getObject("created_at", LocalDateTime.class)
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                .organizationId(rs.getObject("organization_id", UUID.class))
+                .decidedById(rs.getObject("decided_by_id", UUID.class))
+                .decisionComment(rs.getString("decision_comment"))
+                .organizationData(type == 1 ? new RegisterOrganization(rs.getString("organization_name"),
+                        rs.getString("inn"), rs.getString("ogrn"), rs.getString("legal_address"),
+                        rs.getString("authority_evidence")) : null);
     }
 }

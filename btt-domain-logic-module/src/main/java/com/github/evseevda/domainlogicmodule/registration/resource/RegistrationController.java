@@ -13,6 +13,7 @@ import com.github.evseevda.domainlogic.model.RegistrationCertificateVersionDto;
 import com.github.evseevda.domainlogic.model.TransporterRequestDto;
 
 import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
+import com.github.evseevda.domainlogicmodule.registration.service.RegistrationReadService;
 import com.github.evseevda.domainlogicmodule.registration.service.RegistrationRequests;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
@@ -26,8 +27,12 @@ import java.util.UUID;
 public class RegistrationController implements RegistrationApi {
     private final ObjectProvider<RegistrationRequests> requests;
 
-    public RegistrationController(ObjectProvider<RegistrationRequests> requests) {
+    private final ObjectProvider<RegistrationReadService> read;
+
+    public RegistrationController(ObjectProvider<RegistrationRequests> requests,
+                                  ObjectProvider<RegistrationReadService> read) {
         this.requests = requests;
+        this.read = read;
     }
 
     @Override
@@ -51,22 +56,30 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<RegistrationCertificateVersionDto> getCertificateVersion(UUID certificateId, UUID versionId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.certificateVersion(certificateId, versionId));
     }
 
     @Override
     public ResponseEntity<RegistrationCertificateDto> getRegistrationCertificate(UUID transporterId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.certificate(transporterId));
     }
 
     @Override
     public ResponseEntity<DecisionDto> getRegistrationDecision(UUID requestId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.decision(requestId));
     }
 
     @Override
     public ResponseEntity<TransporterRequestDto> getRegistrationRequest(UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.request(id));
     }
 
     @Override
@@ -82,7 +95,9 @@ public class RegistrationController implements RegistrationApi {
             Integer offset,
             Integer limit
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.certificateVersions(certificateId, offset, limit));
     }
 
     @Override
@@ -92,7 +107,9 @@ public class RegistrationController implements RegistrationApi {
             Integer offset,
             Integer limit
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.listRequests(transporterId, status, offset, limit));
     }
 
     @Override
@@ -124,7 +141,9 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<TransporterVersionDto> getTransporterVersion(UUID transporterId, UUID versionId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = read.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.transporterVersion(transporterId, versionId));
     }
 
     @Override

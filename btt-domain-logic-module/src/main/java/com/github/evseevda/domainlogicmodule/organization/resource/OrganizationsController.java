@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -50,6 +51,14 @@ public class OrganizationsController implements OrganizationsApi {
         var service = requests.getIfAvailable();
         return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
                 : ResponseEntity.ok(service.get(id));
+    }
+
+    @Override
+    public ResponseEntity<List<OrganizationRequestDto>> listOrganizationRequests(
+            Integer type, Integer status, Integer offset, Integer limit) {
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.list(type, status, offset, limit));
     }
 
     @Override

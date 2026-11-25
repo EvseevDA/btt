@@ -1,5 +1,7 @@
 package com.github.evseevda.domainlogicmodule.registration.request.domain;
 
+import com.github.evseevda.domainlogicmodule.transporter.domain.TransporterOrganization;
+import com.github.evseevda.domainlogicmodule.transporter.domain.TransporterVersion;
 import com.github.evseevda.domainlogicmodule.identity.domain.UserAccount;
 import com.github.evseevda.domainlogicmodule.registration.request.conversion.TransporterRequestStatusConverter;
 import com.github.evseevda.domainlogicmodule.registration.request.conversion.TransporterRequestTypeConverter;
@@ -29,8 +31,8 @@ public class TransporterRequest {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "transporter_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transporter_id")
     private Transporter transporter;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -54,6 +56,17 @@ public class TransporterRequest {
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private TransporterOrganization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_transporter_version_id")
+    private TransporterVersion sourceTransporterVersion;
+
+    @Column(name = "proposed_data", columnDefinition = "text")
+    private String proposedData;
 
     protected TransporterRequest() {
     }

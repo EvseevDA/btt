@@ -1,6 +1,9 @@
 package com.github.evseevda.domainlogicmodule.registration.resource;
 
 import com.github.evseevda.domainlogic.api.RegistrationApi;
+import com.github.evseevda.domainlogic.model.ReturnRegistrationDecision;
+import com.github.evseevda.domainlogic.model.ReviewDecisionRevision;
+import com.github.evseevda.domainlogic.model.TransporterVersionDto;
 import com.github.evseevda.domainlogic.model.AssignRequestExecutor;
 import com.github.evseevda.domainlogic.model.CreateTransporterRequest;
 import com.github.evseevda.domainlogic.model.DecisionDto;
@@ -85,6 +88,25 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<TransporterRequestDto> withdrawRegistrationRequest(UUID requestId) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+    @Override
+    public ResponseEntity<TransporterRequestDto> approveRegistrationDecision(UUID requestId, ReviewDecisionRevision review) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+
+    @Override
+    public ResponseEntity<TransporterRequestDto> claimRegistrationRequest(UUID requestId) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+
+    @Override
+    public ResponseEntity<TransporterVersionDto> getTransporterVersion(UUID transporterId, UUID versionId) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+
+    @Override
+    public ResponseEntity<TransporterRequestDto> returnRegistrationDecision(UUID requestId, ReturnRegistrationDecision review) {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 }

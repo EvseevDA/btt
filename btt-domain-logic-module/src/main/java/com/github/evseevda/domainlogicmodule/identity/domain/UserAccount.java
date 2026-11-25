@@ -45,6 +45,9 @@ public class UserAccount {
     )
     private Set<Role> roles = new HashSet<>();
 
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
     protected UserAccount() {
     }
 }

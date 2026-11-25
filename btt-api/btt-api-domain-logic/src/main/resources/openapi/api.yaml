@@ -985,15 +985,303 @@ paths:
           "$ref": "#/components/responses/Conflict"
         '501':
           "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/organization-registrations":
+    post:
+      tags: [Organizations]
+      operationId: submitOrganizationRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/RegisterOrganization"}
+      responses:
+        '201':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/OrganizationRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/organization-memberships":
+    post:
+      tags: [Organizations]
+      operationId: submitOrganizationMembership
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/JoinOrganization"}
+      responses:
+        '201':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/OrganizationRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/organization-requests/{requestId}":
+    get:
+      tags: [Organizations]
+      operationId: getOrganizationRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/OrganizationRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/organization-requests/{requestId}/decision":
+    post:
+      tags: [Organizations]
+      operationId: decideOrganizationRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/ReviewOrganizationRequest"}
+      responses:
+        '202':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/OrganizationRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/registration-requests/{requestId}/claim":
+    post:
+      tags: [Registration]
+      operationId: claimRegistrationRequest
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '202':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/TransporterRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/registration-requests/{requestId}/approve":
+    post:
+      tags: [Registration]
+      operationId: approveRegistrationDecision
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/ReviewDecisionRevision"}
+      responses:
+        '202':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/TransporterRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/registration-requests/{requestId}/return":
+    post:
+      tags: [Registration]
+      operationId: returnRegistrationDecision
+      parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"$ref": "#/components/schemas/ReturnRegistrationDecision"}
+      responses:
+        '202':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/TransporterRequestDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/transporters/{transporterId}/versions/{versionId}":
+    get:
+      tags: [Registration]
+      operationId: getTransporterVersion
+      parameters:
+      - name: transporterId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: versionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Запрос обработан
+          content:
+            application/json:
+              schema: {"$ref": "#/components/schemas/TransporterVersionDto"}
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
 components:
   schemas:
+    RegisterOrganization:
+      type: object
+      required: [name, inn, ogrn, legalAddress, authorityEvidence]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 255}
+        inn: {type: string, pattern: '^[0-9]{10}$'}
+        ogrn: {type: string, pattern: '^[0-9]{13}$'}
+        legalAddress: {type: string, minLength: 1, maxLength: 2048}
+        authorityEvidence: {type: string, minLength: 1, maxLength: 4096}
+    JoinOrganization:
+      type: object
+      required: [organizationId]
+      properties:
+        organizationId: {type: string, format: uuid}
+    ReviewOrganizationRequest:
+      type: object
+      required: [approved]
+      properties:
+        approved: {type: boolean}
+        comment: {type: string, maxLength: 2048}
+    OrganizationRequestDto:
+      type: object
+      required: [id, applicantId, type, status, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        applicantId: {type: string, format: uuid}
+        organizationId: {type: string, format: uuid}
+        type: {type: integer, description: '1 — подключение, 2 — присоединение'}
+        status: {type: integer, description: '1 — на проверке, 2 — одобрено, 3 — отклонено'}
+        organizationData: {"$ref": "#/components/schemas/RegisterOrganization"}
+        decidedById: {type: string, format: uuid}
+        decisionComment: {type: string}
+        createdAt: {type: string}
+    ReviewDecisionRevision:
+      type: object
+      required: [revision]
+      properties:
+        revision: {type: integer, minimum: 1}
+    ReturnRegistrationDecision:
+      type: object
+      required: [revision, reason]
+      properties:
+        revision: {type: integer, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 2048}
+    TransporterSnapshotInput:
+      type: object
+      required: [transportKindId, licenses]
+      properties:
+        transportKindId: {type: string, format: uuid}
+        licenses:
+          type: array
+          maxItems: 100
+          items: {"$ref": "#/components/schemas/LicenseInput"}
+    LicenseInput:
+      type: object
+      required: [licenseNumber, issuedAt, expiresAt, issuingAuthority]
+      properties:
+        licenseNumber: {type: string, minLength: 1, maxLength: 100}
+        issuedAt: {type: string, format: date}
+        expiresAt: {type: string, format: date}
+        issuingAuthority: {type: string, minLength: 1, maxLength: 255}
+    TransporterVersionDto:
+      type: object
+      required: [id, transporterId, versionNumber, transportKindId, status, licenses, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        transporterId: {type: string, format: uuid}
+        versionNumber: {type: integer, minimum: 1}
+        transportKindId: {type: string, format: uuid}
+        status: {type: integer}
+        licenses:
+          type: array
+          items: {"$ref": "#/components/schemas/TransporterLicenseDto"}
+        createdAt: {type: string}
     RegisterUser:
       type: object
       required:
       - username
       - email
       - fullName
+      - password
       properties:
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 64
+        roleNames:
+          type: array
+          items:
+            type: string
+            maxLength: 50
         username:
           type: string
           minLength: 1
@@ -1250,12 +1538,18 @@ components:
       type: object
       required:
       - id
-      - transporterId
       - applicantContactId
+      - organizationId
       - type
       - status
       - createdAt
       properties:
+        organizationId:
+          type: string
+          format: uuid
+        sourceTransporterVersionId:
+          type: string
+          format: uuid
         id:
           type: string
           format: uuid
@@ -1303,6 +1597,9 @@ components:
       - type
       - status
       properties:
+        revision: {type: integer, minimum: 1}
+        approvedById: {type: string, format: uuid}
+        returnReason: {type: string}
         id:
           type: string
           format: uuid
@@ -1366,6 +1663,9 @@ components:
       - status
       - createdAt
       properties:
+        transporterVersionId:
+          type: string
+          format: uuid
         id:
           type: string
           format: uuid
@@ -1398,9 +1698,13 @@ components:
     CreateTransporterRequest:
       type: object
       required:
-      - transporterId
       - type
       properties:
+        organizationId:
+          type: string
+          format: uuid
+        transporterData:
+          "$ref": "#/components/schemas/TransporterSnapshotInput"
         transporterId:
           type: string
           format: uuid

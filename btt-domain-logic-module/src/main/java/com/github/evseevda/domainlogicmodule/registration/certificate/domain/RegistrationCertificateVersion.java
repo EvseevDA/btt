@@ -1,5 +1,6 @@
 package com.github.evseevda.domainlogicmodule.registration.certificate.domain;
 
+import com.github.evseevda.domainlogicmodule.transporter.domain.TransporterVersion;
 import com.github.evseevda.domainlogicmodule.registration.certificate.conversion.RegistrationCertificateVersionStatusConverter;
 
 import jakarta.persistence.Column;
@@ -53,6 +54,10 @@ public class RegistrationCertificateVersion {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "transporter_version_id", nullable = false)
+    private TransporterVersion transporterVersion;
 
     protected RegistrationCertificateVersion() {
     }

@@ -1,5 +1,10 @@
 package com.github.evseevda.domainlogicmodule.identity.domain;
 
+import java.util.HashSet;
+import java.util.Set;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -24,6 +29,11 @@ public class Role {
 
     @Column(name = "description", length = 255)
     private String description;
+
+    @ElementCollection
+    @CollectionTable(name = "role_permission", joinColumns = @JoinColumn(name = "role_id"))
+    @Column(name = "permission", nullable = false, length = 100)
+    private Set<String> permissions = new HashSet<>();
 
     protected Role() {
     }

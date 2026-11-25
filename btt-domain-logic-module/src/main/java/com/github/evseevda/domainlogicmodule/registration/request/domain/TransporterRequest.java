@@ -68,6 +68,12 @@ public class TransporterRequest {
     @Column(name = "proposed_data", columnDefinition = "text")
     private String proposedData;
 
+    @Column(name = "pending_action", length = 100)
+    private String pendingAction;
+
+    @Column(name = "pending_command_id")
+    private UUID pendingCommandId;
+
     protected TransporterRequest() {
     }
 }

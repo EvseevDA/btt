@@ -21,20 +21,25 @@ public class WorkflowCommands {
     }
 
     public void start(UUID id, String process) {
-        enqueue(id, process, null, Map.of());
+        enqueue(UUID.randomUUID(), id, process, null, Map.of());
     }
 
     public void message(UUID id, String name, Map<String, ?> payload) {
-        enqueue(id, null, name, payload);
+        message(UUID.randomUUID(), id, name, payload);
     }
 
-    private void enqueue(UUID id, String process, String message, Map<String, ?> payload) {
+    public void message(UUID command, UUID request, String name, Map<String, ?> payload) {
+        enqueue(command, request, null, name, payload);
+    }
+
+    private void enqueue(UUID command, UUID id, String process, String message, Map<String, ?> payload) {
         var variables = new HashMap<String, Object>(payload);
         variables.put("requestId", id.toString());
+        variables.put("commandId", command.toString());
         db.sql("""
                 INSERT INTO workflow_command (id, request_id, request_kind, process_id, message_name, variables, created_at)
                 VALUES (:id, :request, 'bpmn', :process, :message, :variables, timezone('UTC', clock_timestamp()))
-                """).param("id", UUID.randomUUID()).param("request", id).param("process", process)
+                """).param("id", command).param("request", id).param("process", process)
                 .param("message", message).param("variables", json.writeValueAsString(variables)).update();
     }
 }

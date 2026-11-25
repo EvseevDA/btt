@@ -12,6 +12,9 @@ import com.github.evseevda.domainlogic.model.RegistrationCertificateDto;
 import com.github.evseevda.domainlogic.model.RegistrationCertificateVersionDto;
 import com.github.evseevda.domainlogic.model.TransporterRequestDto;
 
+import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
+import com.github.evseevda.domainlogicmodule.registration.service.RegistrationRequests;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,20 +24,29 @@ import java.util.UUID;
 
 @RestController
 public class RegistrationController implements RegistrationApi {
+    private final ObjectProvider<RegistrationRequests> requests;
+
+    public RegistrationController(ObjectProvider<RegistrationRequests> requests) {
+        this.requests = requests;
+    }
 
     @Override
     public ResponseEntity<TransporterRequestDto> assignRegistrationRequestExecutor(
             UUID requestId,
             AssignRequestExecutor assignRequestExecutor
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.accepted().body(service.assign(requestId, assignRequestExecutor.getExecutorId()));
     }
 
     @Override
     public ResponseEntity<TransporterRequestDto> createRegistrationRequest(
             CreateTransporterRequest createTransporterRequest
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.status(HttpStatus.CREATED).body(service.create(createTransporterRequest));
     }
 
     @Override
@@ -59,7 +71,9 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<DecisionDto> issueRegistrationDecision(UUID requestId, IssueDecision issueDecision) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.status(HttpStatus.CREATED).body(service.issue(requestId, issueDecision));
     }
 
     @Override
@@ -83,21 +97,29 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<TransporterRequestDto> submitRegistrationRequest(UUID requestId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.submit(requestId));
     }
 
     @Override
     public ResponseEntity<TransporterRequestDto> withdrawRegistrationRequest(UUID requestId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.accepted().body(service.withdraw(requestId));
     }
     @Override
     public ResponseEntity<TransporterRequestDto> approveRegistrationDecision(UUID requestId, ReviewDecisionRevision review) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.accepted().body(service.review(requestId, review.getRevision(), null));
     }
 
     @Override
     public ResponseEntity<TransporterRequestDto> claimRegistrationRequest(UUID requestId) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.accepted().body(service.assign(requestId, CurrentAccount.id()));
     }
 
     @Override
@@ -107,6 +129,8 @@ public class RegistrationController implements RegistrationApi {
 
     @Override
     public ResponseEntity<TransporterRequestDto> returnRegistrationDecision(UUID requestId, ReturnRegistrationDecision review) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = requests.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.accepted().body(service.review(requestId, review.getRevision(), review.getReason()));
     }
 }

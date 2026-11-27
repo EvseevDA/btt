@@ -27,7 +27,9 @@ import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
@@ -308,6 +310,9 @@ class BackendIntegrationTest {
         assertEquals(firstKind, id(prior, "transportKindId"));
         assertEquals(current.get("licenses").get(0).path("licenseNumber"), prior.get("licenses").get(0).path("licenseNumber"));
         assertNotEquals(id(current.get("licenses").get(0), "id"), id(prior.get("licenses").get(0), "id"));
+        var listed = expect(200, get("/transporters/" + transporter + "/licenses", owner.token()));
+        assertEquals(1, listed.size());
+        assertEquals(id(current.get("licenses").get(0), "id"), id(listed.get(0), "id"));
     }
 
     @ParameterizedTest
@@ -387,6 +392,118 @@ class BackendIntegrationTest {
         expect(409, post("/tickets", passenger.token(), Map.of("tripId", trip)));
         expect(409, post("/tickets/" + ticket + "/cancel", passenger.token(), null));
         assertEquals(1, expect(200, get("/tickets/" + ticket, passenger.token())).path("status").asInt());
+    }
+
+    @Test
+    void expiredTokenCannotReadAccountButNewTokenCan() throws Exception {
+        var account = account(false);
+        String path = "/users/" + account.id();
+        var profile = expect(200, get(path, account.token()));
+        String username = profile.path("username").asText();
+        db.sql("UPDATE account_token SET expires_at = :expiry WHERE user_id = :id")
+                .param("expiry", LocalDateTime.now(Clock.systemUTC()).minusMinutes(1))
+                .param("id", account.id()).update();
+        expect(401, get(path, account.token()));
+        expect(401, post("/auth/token", null, Map.of("username", username, "password", "incorrect-password")));
+        String fresh = expect(200, post("/auth/token", null, Map.of("username", username, "password", PASSWORD)))
+                .path("token").asText();
+        assertNotEquals(account.token(), fresh);
+        assertEquals(account.id(), id(expect(200, get(path, fresh)), "id"));
+    }
+
+    @Test
+    void caseVariantsOfExistingLoginAndEmailCannotCreateAnotherAccount() throws Exception {
+        var account = account(false);
+        var profile = expect(200, get("/users/" + account.id(), account.token()));
+        String username = profile.path("username").asText().toUpperCase(Locale.ROOT);
+        String email = profile.path("email").asText().toUpperCase(Locale.ROOT);
+        expect(409, post("/users", null, Map.of("username", username, "email", UUID.randomUUID() + "@example.test",
+                "fullName", "Duplicate login", "password", PASSWORD)));
+        expect(409, post("/users", null, Map.of("username", "duplicate-" + UUID.randomUUID(), "email", email,
+                "fullName", "Duplicate email", "password", PASSWORD)));
+    }
+
+    @Test
+    void routeCatalogAppliesTransportFilterAndExactOffset() throws Exception {
+        var passenger = account(false);
+        UUID kind = kind();
+        UUID otherKind = kind();
+        UUID first = catalogRoute(kind, "A");
+        UUID third = catalogRoute(kind, "C");
+        catalogRoute(kind, "B");
+        catalogRoute(otherKind, "AB");
+        String path = "/routes?transportKindId=" + kind;
+        var firstPage = expect(200, get(path + "&limit=2", passenger.token()));
+        assertEquals(2, firstPage.size());
+        assertEquals(first, id(firstPage.get(0), "id"));
+        assertEquals("B", firstPage.get(1).path("source").asText());
+        var overlappingPage = expect(200, get(path + "&limit=2&offset=1", passenger.token()));
+        assertEquals(2, overlappingPage.size());
+        assertEquals(id(firstPage.get(1), "id"), id(overlappingPage.get(0), "id"));
+        assertEquals(third, id(overlappingPage.get(1), "id"));
+        assertTrue(expect(200, get(path + "&offset=3", passenger.token())).isEmpty());
+    }
+
+    @Test
+    void ticketListIsScopedToPassengerAndTrip() throws Exception {
+        var first = account(false);
+        var second = account(false);
+        UUID firstTrip = scheduledTrip();
+        UUID secondTrip = scheduledTrip();
+        UUID firstTicket = id(expect(201, post("/tickets", first.token(), Map.of("tripId", firstTrip))), "id");
+        UUID otherTicket = id(expect(201, post("/tickets", second.token(), Map.of("tripId", secondTrip))), "id");
+        expect(201, post("/tickets", first.token(), Map.of("tripId", scheduledTrip())));
+
+        var filtered = expect(200, get("/tickets?tripId=" + firstTrip, first.token()));
+        assertEquals(1, filtered.size());
+        assertEquals(firstTicket, id(filtered.get(0), "id"));
+        assertTrue(expect(200, get("/tickets?tripId=" + firstTrip, second.token())).isEmpty());
+        assertEquals(2, expect(200, get("/tickets", first.token())).size());
+        assertEquals(otherTicket, id(expect(200, get("/tickets", second.token())).get(0), "id"));
+    }
+
+    @Test
+    void concurrentAutomaticBookingAssignsEachAvailableSeatOnlyOnce() throws Exception {
+        var passengers = List.of(account(false), account(false), account(false));
+        UUID trip = scheduledTrip();
+        db.sql("INSERT INTO trip_seat (trip_id, seat_code) VALUES (:trip, 'A2')").param("trip", trip).update();
+        var barrier = new CyclicBarrier(passengers.size());
+        var executor = Executors.newFixedThreadPool(passengers.size());
+        try {
+            var bookings = passengers.stream().map(passenger -> executor.submit(() -> {
+                barrier.await(5, TimeUnit.SECONDS);
+                return post("/tickets", passenger.token(), Map.of("tripId", trip));
+            })).toList();
+            var responses = new ArrayList<HttpResponse<String>>();
+            for (var booking : bookings) {
+                responses.add(booking.get(15, TimeUnit.SECONDS));
+            }
+            assertEquals(List.of(201, 201, 409), responses.stream().map(HttpResponse::statusCode).sorted().toList());
+            assertEquals(List.of("A1", "A2"), responses.stream().filter(response -> response.statusCode() == 201)
+                    .map(response -> json.readTree(response.body()).path("seatCode").asText()).sorted().toList());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void approvedOrganizationIsSearchableByTaxNumber() throws Exception {
+        var owner = account(false);
+        UUID organization = connect(owner, account(true));
+        String path = "/transporter-organizations";
+        var details = expect(200, get(path + "/" + organization, owner.token()));
+        String inn = details.path("inn").asText();
+        var matches = expect(200, get(path + "?search=" + inn, owner.token()));
+        assertEquals(1, matches.size());
+        assertEquals(organization, id(matches.get(0), "id"));
+        assertTrue(expect(200, get(path + "?search=" + inn + "&offset=1", owner.token())).isEmpty());
+    }
+
+    private UUID catalogRoute(UUID kind, String source) {
+        UUID route = UUID.randomUUID();
+        db.sql("INSERT INTO route (id, source, dest, duration, transport_kind_id) VALUES (:id, :source, 'Destination', 60, :kind)")
+                .param("id", route).param("source", source).param("kind", kind).update();
+        return route;
     }
 
     private UUID connect(Account owner, Account reviewer) throws Exception {

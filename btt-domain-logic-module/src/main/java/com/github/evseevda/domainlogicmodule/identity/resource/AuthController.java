@@ -9,15 +9,18 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Предоставляет REST-операцию обмена учётных данных на токен доступа. */
 @RestController
 @Profile("!mock-api")
 public class AuthController implements AuthApi {
     private final AccountTokens tokens;
 
+    /** Создаёт контроллер и связывает его с прикладным сервисом. */
     public AuthController(AccountTokens tokens) {
         this.tokens = tokens;
     }
 
+    /** Обменивает логин и пароль на токен с ограниченным сроком действия. */
     @Override
     public ResponseEntity<AccessToken> issueToken(Login login) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())

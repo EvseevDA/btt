@@ -14,15 +14,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/** Позволяет найти подключённое юридическое лицо для подачи заявки. */
 @Service
 @Profile("!mock-api")
 public class OrganizationDirectory {
     private final JdbcClient db;
 
+    /** Создаёт сервис с доступом к базе данных. */
     public OrganizationDirectory(JdbcClient db) {
         this.db = db;
     }
 
+    /** Возвращает подключённую организацию по её идентификатору. */
     public TransporterOrganizationDto get(UUID id) {
         return db.sql("""
                 SELECT id, name, inn, ogrn, legal_address, created_at FROM transporter_organization WHERE id = :id
@@ -30,6 +33,7 @@ public class OrganizationDirectory {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Организация не найдена"));
     }
 
+    /** Ищет подключённые организации по фрагменту названия или точному ИНН либо ОГРН. */
     public List<TransporterOrganizationDto> list(String search, int offset, int limit) {
         return db.sql("""
                 SELECT id, name, inn, ogrn, legal_address, created_at FROM transporter_organization

@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Выдаёт непрозрачные токены доступа и восстанавливает разрешения аккаунта при аутентификации. */
 @Service
 @Profile("!mock-api")
 public class AccountTokens {
@@ -30,12 +31,14 @@ public class AccountTokens {
     private final SecureRandom random = new SecureRandom();
     private final String unknownAccountHash;
 
+    /** Создаёт сервис токенов с подключением к базе и кодировщиком паролей. */
     public AccountTokens(JdbcClient db, PasswordEncoder passwords) {
         this.db = db;
         this.passwords = passwords;
         this.unknownAccountHash = passwords.encode(UUID.randomUUID().toString());
     }
 
+    /** Проверяет пароль и выдаёт токен, действующий восемь часов. */
     public String issue(String username, String password) {
         var account = db.sql("SELECT id, password_hash FROM \"user\" WHERE username = :username")
                 .param("username", username.strip().toLowerCase(Locale.ROOT))
@@ -55,6 +58,7 @@ public class AccountTokens {
         return token;
     }
 
+    /** Находит аккаунт по действующему токену и загружает его разрешения. */
     public Optional<Authentication> authenticate(String token) {
         if (token.length() != 43) {
             return Optional.empty();

@@ -18,20 +18,24 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/** Читает справочники транспорта, маршруты, перевозчиков и лицензии их последних версий. */
 @Service
 @Profile("!mock-api")
 public class CatalogService {
     private final JdbcClient db;
 
+    /** Создаёт сервис с доступом к базе данных. */
     public CatalogService(JdbcClient db) {
         this.db = db;
     }
 
+    /** Возвращает маршрут по идентификатору. */
     public RouteDto route(UUID id) {
         return db.sql("SELECT * FROM route WHERE id = :id").param("id", id)
                 .query((rs, row) -> route(rs)).optional().orElseThrow(CatalogService::notFound);
     }
 
+    /** Возвращает маршруты с фильтром по виду транспорта. */
     public List<RouteDto> routes(UUID kind, int offset, int limit) {
         return db.sql("""
                 SELECT * FROM route WHERE (:kind::uuid IS NULL OR transport_kind_id = :kind::uuid)
@@ -40,21 +44,25 @@ public class CatalogService {
                 .query((rs, row) -> route(rs)).list();
     }
 
+    /** Возвращает описание вида транспорта по идентификатору. */
     public TransportKindDto kind(UUID id) {
         return db.sql("SELECT * FROM transport_kind WHERE id = :id").param("id", id)
                 .query((rs, row) -> kind(rs)).optional().orElseThrow(CatalogService::notFound);
     }
 
+    /** Возвращает страницу справочника видов транспорта. */
     public List<TransportKindDto> kinds(int offset, int limit) {
         return db.sql("SELECT * FROM transport_kind ORDER BY name, id LIMIT :limit OFFSET :offset")
                 .param("offset", offset).param("limit", limit).query((rs, row) -> kind(rs)).list();
     }
 
+    /** Возвращает текущие сведения о перевозчике. */
     public TransporterDto transporter(UUID id) {
         return db.sql("SELECT * FROM transporter WHERE id = :id").param("id", id)
                 .query((rs, row) -> transporter(rs)).optional().orElseThrow(CatalogService::notFound);
     }
 
+    /** Возвращает перевозчиков с фильтрами по организации и виду транспорта. */
     public List<TransporterDto> transporters(UUID organization, UUID kind, int offset, int limit) {
         return db.sql("""
                 SELECT * FROM transporter
@@ -65,6 +73,7 @@ public class CatalogService {
                 .query((rs, row) -> transporter(rs)).list();
     }
 
+    /** Возвращает лицензии из последнего снимка перевозчика. */
     public List<TransporterLicenseDto> licenses(UUID transporter, int offset, int limit) {
         transporter(transporter);
         return db.sql("""

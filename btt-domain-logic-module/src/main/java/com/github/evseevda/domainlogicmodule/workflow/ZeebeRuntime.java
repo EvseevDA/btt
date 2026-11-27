@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/** Разворачивает BPMN, отправляет сохранённые команды и опрашивает Zeebe для выполнения заданий. */
 @Component
 @Profile("!mock-api")
 @EnableScheduling
@@ -42,6 +43,7 @@ public class ZeebeRuntime {
     private final Map<String, WorkflowJobHandler> handlers = new LinkedHashMap<>();
     private boolean deployed;
 
+    /** Настраивает REST-клиент Zeebe и регистрирует обработчики по типам заданий. */
     public ZeebeRuntime(@Value("${btt.zeebe.url}") String url,
                         @Value("${btt.zeebe.token:}") String token,
                         JdbcClient db, TransactionTemplate transactions, ObjectMapper json,

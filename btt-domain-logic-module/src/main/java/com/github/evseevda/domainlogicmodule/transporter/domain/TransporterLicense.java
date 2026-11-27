@@ -17,35 +17,44 @@ import lombok.Getter;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/** Запись лицензии в конкретном снимке перевозчика. */
 @Entity
 @Getter
 @Table(name = "transporter_license")
 public class TransporterLicense {
+    /** Идентификатор записи. */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    /** Перевозчик, к которому относится запись. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "transporter_id", nullable = false)
     private Transporter transporter;
 
+    /** Номер лицензии. */
     @Column(name = "license_number", nullable = false, length = 100)
     private String licenseNumber;
 
+    /** Дата выдачи лицензии. */
     @Column(name = "issued_at", nullable = false)
     private LocalDate issuedAt;
 
+    /** Дата окончания действия лицензии. */
     @Column(name = "expires_at", nullable = false)
     private LocalDate expiresAt;
 
+    /** Орган, выдавший лицензию. */
     @Column(name = "issuing_authority", nullable = false, length = 255)
     private String issuingAuthority;
 
+    /** Текущее состояние записи. */
     @Convert(converter = TransporterLicenseStatusConverter.class)
     @Column(name = "status", nullable = false)
     private TransporterLicenseStatus status;
 
+    /** Снимок перевозчика, к которому относится запись. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "transporter_version_id", nullable = false)
     private TransporterVersion transporterVersion;

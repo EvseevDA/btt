@@ -20,21 +20,25 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/** Управляет билетами текущего пользователя и резервирует места транзакционно. */
 @Service
 @Profile("!mock-api")
 public class TicketService {
     private final JdbcClient db;
 
+    /** Создаёт сервис с доступом к базе данных. */
     public TicketService(JdbcClient db) {
         this.db = db;
     }
 
+    /** Читает билет только в пределах аккаунта текущего пользователя. */
     public TicketDto get(UUID id) {
         return db.sql("SELECT * FROM ticket WHERE id = :id AND user_id = :user")
                 .param("id", id).param("user", CurrentAccount.id())
                 .query((rs, row) -> ticket(rs)).optional().orElseThrow(TicketService::notFound);
     }
 
+    /** Читает билеты текущего пользователя с фильтром по рейсу. */
     public List<TicketDto> list(UUID trip, int offset, int limit) {
         return db.sql("""
                 SELECT * FROM ticket WHERE user_id = :user AND (:trip::uuid IS NULL OR trip_id = :trip::uuid)
@@ -43,6 +47,7 @@ public class TicketService {
                 .query((rs, row) -> ticket(rs)).list();
     }
 
+    /** Бронирует выбранное или первое доступное место, фиксируя цену рейса в билете. */
     @Transactional
     public TicketDto book(BookTicket form) {
         UUID user = CurrentAccount.id();
@@ -74,6 +79,7 @@ public class TicketService {
         return get(ticket);
     }
 
+    /** Отменяет билет его владельцем до отправления. Повторная отмена возвращает тот же результат. */
     @Transactional
     public TicketDto cancel(UUID id) {
         UUID user = CurrentAccount.id();

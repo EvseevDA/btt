@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+/** Читает заявления и снимки регистрации с учётом прав вызывающего пользователя. */
 @Service
 @Profile("!mock-api")
 @Transactional(readOnly = true)
@@ -39,12 +40,14 @@ public class RegistrationReadService {
     private final RegistrationRequests requests;
     private final ObjectMapper json;
 
+    /** Создаёт сервис чтения заявлений и исторических снимков. */
     public RegistrationReadService(JdbcClient db, RegistrationRequests requests, ObjectMapper json) {
         this.db = db;
         this.requests = requests;
         this.json = json;
     }
 
+    /** Возвращает карточку заявления с предложенным снимком после проверки видимости. */
     public TransporterRequestDto request(UUID id) {
         var request = requests.find(id, false);
         var dto = request.dto();
@@ -57,11 +60,13 @@ public class RegistrationReadService {
         return withProposedData(request);
     }
 
+    /** Возвращает решение по заявлению, которое пользователь вправе просматривать. */
     public DecisionDto decision(UUID requestId) {
         request(requestId);
         return requests.decision(requestId);
     }
 
+    /** Читает страницу доступных заявлений с фильтрами по перевозчику и состоянию. */
     public List<TransporterRequestDto> listRequests(UUID transporter, Integer status, int offset, int limit) {
         var reviewerTypes = Arrays.stream(TransporterRequestType.values())
                 .mapToInt(TransporterRequestType::getId).filter(this::mayReview).boxed().toList();
@@ -78,6 +83,7 @@ public class RegistrationReadService {
                 .query((rs, row) -> withProposedData(RegistrationRequests.mapRequest(rs))).list();
     }
 
+    /** Возвращает РУ перевозчика и идентификатор его последней версии. */
     public RegistrationCertificateDto certificate(UUID transporter) {
         requireCarrierAccess(transporter);
         return db.sql("""
@@ -92,6 +98,7 @@ public class RegistrationReadService {
                 .optional().orElseThrow(RegistrationReadService::notFound);
     }
 
+    /** Возвращает версии РУ в порядке от новой к старой. */
     public List<RegistrationCertificateVersionDto> certificateVersions(UUID certificate, int offset, int limit) {
         requireCertificateAccess(certificate);
         return db.sql("SELECT " + VERSION_COLUMNS + """
@@ -101,6 +108,7 @@ public class RegistrationReadService {
                 .query((rs, row) -> certificateVersion(rs)).list();
     }
 
+    /** Возвращает конкретную версию, принадлежащую указанному РУ. */
     public RegistrationCertificateVersionDto certificateVersion(UUID certificate, UUID version) {
         requireCertificateAccess(certificate);
         return db.sql("SELECT " + VERSION_COLUMNS + """
@@ -109,6 +117,7 @@ public class RegistrationReadService {
                 .query((rs, row) -> certificateVersion(rs)).optional().orElseThrow(RegistrationReadService::notFound);
     }
 
+    /** Возвращает исторический снимок перевозчика вместе с лицензиями этой версии. */
     public TransporterVersionDto transporterVersion(UUID transporter, UUID version) {
         requireCarrierAccess(transporter);
         var dto = db.sql("""

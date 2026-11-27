@@ -15,21 +15,26 @@ import lombok.Getter;
 
 import java.util.UUID;
 
+/** Роль портала, объединяющая набор разрешений. */
 @Entity
 @Getter
 @Table(name = "role")
 public class Role {
+    /** Идентификатор записи. */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    /** Отображаемое название. */
     @Column(name = "name", nullable = false, unique = true, length = 50)
     private String name;
 
+    /** Описание записи. */
     @Column(name = "description", length = 255)
     private String description;
 
+    /** Разрешения, предоставляемые ролью. */
     @ElementCollection
     @CollectionTable(name = "role_permission", joinColumns = @JoinColumn(name = "role_id"))
     @Column(name = "permission", nullable = false, length = 100)

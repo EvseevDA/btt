@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/** Обрабатывает заявки на подключение организаций и вступление в них, а также итоговые задачи Zeebe. */
 @Service
 @Profile("!mock-api")
 public class OrganizationRequests implements WorkflowJobHandler {
@@ -39,11 +40,13 @@ public class OrganizationRequests implements WorkflowJobHandler {
     private final JdbcClient db;
     private final WorkflowCommands workflow;
 
+    /** Создаёт сервис заявок с доступом к базе и журналу команд. */
     public OrganizationRequests(JdbcClient db, WorkflowCommands workflow) {
         this.db = db;
         this.workflow = workflow;
     }
 
+    /** Подаёт заявку на подключение юридического лица и ставит запуск проверки в очередь. */
     @Transactional
     public OrganizationRequestDto register(RegisterOrganization form) {
         UUID applicant = CurrentAccount.id();
@@ -73,6 +76,7 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return get(request);
     }
 
+    /** Создаёт заявку на членство для текущего пользователя и запускает её проверку. */
     @Transactional
     public OrganizationRequestDto join(JoinOrganization form) {
         UUID applicant = CurrentAccount.id();
@@ -97,6 +101,7 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return get(request);
     }
 
+    /** Обновляет делегированные полномочия члена организации после проверки прав вызывающего. */
     @Transactional
     public void updatePermissions(UUID organization, UUID user, boolean represent, boolean confirm) {
         UUID actor = CurrentAccount.id();
@@ -113,6 +118,7 @@ public class OrganizationRequests implements WorkflowJobHandler {
         if (updated == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
+    /** Читает заявку, доступную подателю или уполномоченному проверяющему. */
     public OrganizationRequestDto get(UUID id) {
         var request = find(id, false);
         if (!request.getApplicantId().equals(CurrentAccount.id())) {
@@ -121,6 +127,7 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return request;
     }
 
+    /** Читает страницу собственных заявок и заявок, доступных для проверки. */
     @Transactional(readOnly = true)
     public List<OrganizationRequestDto> list(Integer type, Integer status, int offset, int limit) {
         UUID actor = CurrentAccount.id();
@@ -137,6 +144,7 @@ public class OrganizationRequests implements WorkflowJobHandler {
                 .query((rs, row) -> request(rs)).list();
     }
 
+    /** Сохраняет вердикт уполномоченного проверяющего и ставит сообщение процесса в очередь. */
     @Transactional
     public OrganizationRequestDto decide(UUID id, ReviewOrganizationRequest review) {
         UUID reviewer = CurrentAccount.id();
@@ -162,11 +170,13 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return find(id, false);
     }
 
+    /** Возвращает типы заданий, поддерживаемые этим обработчиком. */
     @Override
     public Set<String> jobTypes() {
         return Set.of(REGISTRATION_APPROVE, REGISTRATION_REJECT, MEMBERSHIP_APPROVE, MEMBERSHIP_REJECT);
     }
 
+    /** Применяет сохранённый результат проверки и сохраняет организацию или членство при одобрении. */
     @Override
     @Transactional
     public Map<String, ?> handle(String type, JsonNode variables) {

@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/** Читает расписание и вычисляет доступность мест на момент запроса. */
 @Service
 @Profile("!mock-api")
 public class TripSearch {
@@ -37,16 +38,19 @@ public class TripSearch {
 
     private final JdbcClient db;
 
+    /** Создаёт сервис с доступом к базе данных. */
     public TripSearch(JdbcClient db) {
         this.db = db;
     }
 
+    /** Читает рейс по идентификатору и рассчитывает доступность мест. */
     public TripDto get(UUID id) {
         return db.sql(SEARCH + " WHERE t.id = :id").param("id", id)
                 .query((rs, row) -> dto(rs)).optional().orElseThrow(
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Рейс не найден"));
     }
 
+    /** Ищет рейсы по фильтрам и возвращает страницу в порядке отправления. */
     public List<TripDto> list(Filter filter, int offset, int limit) {
         if (filter.from() != null && filter.until() != null && !filter.from().isBefore(filter.until())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некорректный интервал отправления");
@@ -70,6 +74,7 @@ public class TripSearch {
                 .param("offset", offset).param("limit", limit).query((rs, row) -> dto(rs)).list();
     }
 
+    /** Возвращает места рейса и доступность каждого места на момент чтения. */
     public List<TripSeatDto> seats(UUID id) {
         get(id);
         return db.sql("""
@@ -100,6 +105,20 @@ public class TripSearch {
         return time == null ? null : time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
+    /**
+     * Критерии поиска рейсов. Пропущенные необязательные поля не ограничивают выборку.
+     *
+     * @param route идентификатор маршрута
+     * @param transporter идентификатор перевозчика
+     * @param kind идентификатор вида транспорта
+     * @param source фрагмент названия пункта отправления
+     * @param destination фрагмент названия пункта назначения
+     * @param carrier фрагмент названия организации перевозчика
+     * @param from нижняя граница отправления включительно
+     * @param until верхняя граница отправления исключительно
+     * @param maxPrice максимальный тариф
+     * @param bookable признак отбора будущих рейсов, доступных для бронирования
+     */
     public record Filter(UUID route, UUID transporter, UUID kind, String source, String destination, String carrier,
                          OffsetDateTime from, OffsetDateTime until, BigDecimal maxPrice, boolean bookable) {
     }

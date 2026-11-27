@@ -25,6 +25,7 @@ import java.util.UUID;
 
 import static com.github.evseevda.domainlogicmodule.workflow.BpmnEventNames.*;
 
+/** Проверяет команды по регистрации перевозчика и выполняет переходы, полученные из Zeebe. */
 @Service
 @Profile("!mock-api")
 public class RegistrationRequests implements WorkflowJobHandler {
@@ -38,12 +39,14 @@ public class RegistrationRequests implements WorkflowJobHandler {
     private final WorkflowCommands workflow;
     private final RegistrationSnapshots snapshots;
 
+    /** Создаёт сервис переходов с журналом команд и сервисом снимков перевозчика. */
     public RegistrationRequests(JdbcClient db, WorkflowCommands workflow, RegistrationSnapshots snapshots) {
         this.db = db;
         this.workflow = workflow;
         this.snapshots = snapshots;
     }
 
+    /** Сохраняет черновик заявления, проверяя полномочия и данные перевозчика для выбранного процесса. */
     @Transactional
     public TransporterRequestDto create(CreateTransporterRequest form) {
         UUID actor = CurrentAccount.id();
@@ -82,6 +85,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return find(id, false).dto();
     }
 
+    /** Переводит черновик в поданное заявление и ставит запуск BPMN в очередь. */
     @Transactional
     public TransporterRequestDto submit(UUID id) {
         var request = find(id, true);
@@ -107,6 +111,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return find(id, false).dto();
     }
 
+    /** Ставит в очередь назначение исполнителя или взятие заявления в работу. */
     @Transactional
     public TransporterRequestDto assign(UUID id, UUID executor) {
         var request = find(id, true);
@@ -124,6 +129,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return request.dto();
     }
 
+    /** Сохраняет новую редакцию решения исполнителя и ставит передачу на согласование в очередь. */
     @Transactional
     public DecisionDto issue(UUID id, IssueDecision form) {
         var request = find(id, true);
@@ -145,6 +151,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return decision;
     }
 
+    /** Ставит в очередь согласование или возврат указанной редакции решения. */
     @Transactional
     public TransporterRequestDto review(UUID id, int revision, String returnReason) {
         var request = find(id, true);
@@ -166,6 +173,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return request.dto();
     }
 
+    /** Ставит в очередь отзыв заявления, доступный только подателю до согласования. */
     @Transactional
     public TransporterRequestDto withdraw(UUID id) {
         var request = find(id, true);
@@ -175,12 +183,14 @@ public class RegistrationRequests implements WorkflowJobHandler {
         return request.dto();
     }
 
+    /** Возвращает типы заданий, поддерживаемые этим обработчиком. */
     @Override
     public Set<String> jobTypes() {
         return Set.of(ASSIGN_JOB, DECISION_JOB, RETURN_JOB, WITHDRAW_JOB, REFUSAL_JOB, "blm_apply_initial_registration",
                 "blm_apply_registration_amendment", "blm_apply_carrier_cancellation", "blm_apply_admin_cancellation");
     }
 
+    /** Выполняет переход заявления. Повтор задания возвращает сохранённый результат команды. */
     @Override
     @Transactional
     public Map<String, ?> handle(String job, JsonNode variables) {

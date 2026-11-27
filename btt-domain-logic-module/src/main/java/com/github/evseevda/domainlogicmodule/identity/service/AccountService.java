@@ -20,17 +20,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+/** Создаёт аккаунты, назначает роли и проверяет доступ к профилям. */
 @Service
 @Profile("!mock-api")
 public class AccountService {
     private final JdbcClient db;
     private final PasswordEncoder passwords;
 
+    /** Создаёт сервис аккаунтов с подключением к базе и кодировщиком паролей. */
     public AccountService(JdbcClient db, PasswordEncoder passwords) {
         this.db = db;
         this.passwords = passwords;
     }
 
+    /** Создаёт публичный аккаунт или, при наличии разрешения, аккаунт с ролями сотрудника. */
     @Transactional
     public UserAccountDto register(RegisterUser input) {
         var roles = input.getRoleNames();
@@ -45,6 +48,7 @@ public class AccountService {
         return find(id);
     }
 
+    /** Создаёт первого администратора, если эта роль ещё никому не назначена. */
     @Transactional
     public void bootstrap(String username, String email, String password) {
         db.sql("SELECT id FROM role WHERE name = 'PORTAL_ADMIN' FOR UPDATE").query(UUID.class).single();
@@ -57,11 +61,13 @@ public class AccountService {
         }
     }
 
+    /** Возвращает собственный профиль или профиль, доступный администратору. */
     public UserAccountDto profile(UUID id) {
         checkAccess(id);
         return find(id);
     }
 
+    /** Читает роли аккаунта с проверкой доступа и разбивкой на страницы. */
     public List<RoleDto> roles(UUID id, int offset, int limit) {
         checkAccess(id);
         find(id);

@@ -16,27 +16,34 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/** Учётная запись пользователя с профилем и назначенными ролями. */
 @Entity
 @Getter
 @Table(name = "\"user\"")
 public class UserAccount {
+    /** Идентификатор записи. */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    /** Логин для входа. */
     @Column(name = "username", nullable = false, unique = true, length = 100)
     private String username;
 
+    /** Адрес электронной почты. */
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
+    /** Отображаемое имя пользователя. */
     @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 
+    /** Время создания записи в UTC. */
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** Роли аккаунта. */
     @ManyToMany
     @JoinTable(
             name = "user_roles",
@@ -45,6 +52,7 @@ public class UserAccount {
     )
     private Set<Role> roles = new HashSet<>();
 
+    /** Хеш пароля. */
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 

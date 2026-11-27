@@ -18,30 +18,38 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/** Юридическое лицо, к которому относятся пользователи и перевозчики. */
 @Entity
 @Getter
 @Table(name = "transporter_organization")
 public class TransporterOrganization {
+    /** Идентификатор записи. */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    /** Отображаемое название. */
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
+    /** ИНН организации. */
     @Column(name = "inn", nullable = false, unique = true, length = 12)
     private String inn;
 
+    /** ОГРН организации. */
     @Column(name = "ogrn", nullable = false, unique = true, length = 15)
     private String ogrn;
 
+    /** Юридический адрес организации. */
     @Column(name = "legal_address", nullable = false, columnDefinition = "text")
     private String legalAddress;
 
+    /** Время создания записи в UTC. */
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** Участники организации. */
     @ManyToMany
     @JoinTable(
             name = "transporter_organization_users",

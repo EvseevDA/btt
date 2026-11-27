@@ -69,7 +69,9 @@ class ZeebeWorkflowIntegrationTest {
         await(() -> delivered(requestId, false), "Zeebe did not acknowledge process creation for " + requestId);
         assertEquals(OrganizationRequestStatus.PENDING.getId(), send(200, path, applicant, null).path("status").asInt());
 
-        send(202, path + "/decision", reviewer, Map.of("approved", approved));
+        String rejectionReason = "No authorization";
+        var decision = approved ? Map.of("approved", true) : Map.of("approved", false, "comment", rejectionReason);
+        send(202, path + "/decision", reviewer, decision);
         await(() -> delivered(requestId, true), "Zeebe did not acknowledge publication for " + requestId);
         var expected = approved ? OrganizationRequestStatus.APPROVED : OrganizationRequestStatus.REJECTED;
         await(() -> send(200, path, applicant, null).path("status").asInt() == expected.getId(),
@@ -82,7 +84,8 @@ class ZeebeWorkflowIntegrationTest {
             UUID organizationId = UUID.fromString(result.path("organizationId").asText());
             assertEquals(java.util.List.of(organizationId), organizations);
         } else {
-            assertTrue(result.path("organizationId").isMissingNode() || result.path("organizationId").isNull());
+            assertFalse(result.hasNonNull("organizationId"));
+            assertEquals(rejectionReason, result.path("decisionComment").asText());
             assertTrue(organizations.isEmpty());
         }
     }

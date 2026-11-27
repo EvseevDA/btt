@@ -414,6 +414,38 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: source
+        in: query
+        description: Пункт отправления
+        schema: {type: string, maxLength: 255}
+      - name: destination
+        in: query
+        description: Пункт назначения
+        schema: {type: string, maxLength: 255}
+      - name: carrier
+        in: query
+        description: Название организации перевозчика
+        schema: {type: string, maxLength: 255}
+      - name: transportKindId
+        in: query
+        description: Вид транспорта
+        schema: {type: string, format: uuid}
+      - name: departureFrom
+        in: query
+        description: Нижняя граница отправления, включительно
+        schema: {type: string, format: date-time}
+      - name: departureUntil
+        in: query
+        description: Верхняя граница отправления, исключительно
+        schema: {type: string, format: date-time}
+      - name: maxPrice
+        in: query
+        description: Максимальная цена места
+        schema: {type: number, minimum: 0}
+      - name: bookableOnly
+        in: query
+        description: Только будущие рейсы со свободными местами
+        schema: {type: boolean, default: false}
       - name: offset
         in: query
         required: false
@@ -931,7 +963,7 @@ paths:
       - Tickets
       operationId: bookTicket
       summary: Забронировать билет
-      description: Пассажир определяется по текущему пользователю. Номер билета и цена формируются на сервере.
+      description: Пассажир определяется по текущему пользователю. Цена берётся из тарифа рейса. При пустом seatCode сервер выбирает свободное место.
       requestBody:
         required: true
         content:
@@ -1264,8 +1296,36 @@ paths:
                 items: {"$ref": "#/components/schemas/OrganizationRequestDto"}
         '501':
           "$ref": "#/components/responses/NotImplemented"
+  "/api/v1/trips/{tripId}/seats":
+    get:
+      tags: [Trips]
+      operationId: listTripSeats
+      summary: Места рейса
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Список мест и доступность
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {"$ref": "#/components/schemas/TripSeatDto"}
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '501':
+          "$ref": "#/components/responses/NotImplemented"
 components:
   schemas:
+    TripSeatDto:
+      type: object
+      required: [seatCode, available]
+      properties:
+        seatCode: {type: string}
+        available: {type: boolean}
     OrganizationMemberPermissions:
       type: object
       required: [canRepresent, canConfirmMembers]
@@ -1567,6 +1627,12 @@ components:
       - arrivalAt
       - status
       properties:
+        basePrice:
+          type: number
+          minimum: 0
+        availableSeats:
+          type: integer
+          minimum: 0
         id:
           type: string
           format: uuid

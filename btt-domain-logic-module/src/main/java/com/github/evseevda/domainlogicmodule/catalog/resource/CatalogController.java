@@ -9,6 +9,7 @@ import com.github.evseevda.domainlogic.model.TransporterOrganizationDto;
 
 import com.github.evseevda.domainlogicmodule.organization.service.OrganizationDirectory;
 import org.springframework.beans.factory.ObjectProvider;
+import com.github.evseevda.domainlogicmodule.catalog.service.CatalogService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,24 +20,32 @@ import java.util.UUID;
 @RestController
 public class CatalogController implements CatalogApi {
     private final ObjectProvider<OrganizationDirectory> organizations;
+    private final ObjectProvider<CatalogService> services;
 
-    public CatalogController(ObjectProvider<OrganizationDirectory> organizations) {
+    public CatalogController(ObjectProvider<OrganizationDirectory> organizations, ObjectProvider<CatalogService> services) {
         this.organizations = organizations;
+        this.services = services;
     }
 
     @Override
     public ResponseEntity<RouteDto> getRoute(UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.route(id));
     }
 
     @Override
     public ResponseEntity<TransportKindDto> getTransportKind(UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.kind(id));
     }
 
     @Override
     public ResponseEntity<TransporterDto> getTransporter(UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.transporter(id));
     }
 
     @Override
@@ -48,12 +57,16 @@ public class CatalogController implements CatalogApi {
 
     @Override
     public ResponseEntity<List<RouteDto>> listRoutes(UUID transportKindId, Integer offset, Integer limit) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.routes(transportKindId, offset, limit));
     }
 
     @Override
     public ResponseEntity<List<TransportKindDto>> listTransportKinds(Integer offset, Integer limit) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.kinds(offset, limit));
     }
 
     @Override
@@ -62,7 +75,9 @@ public class CatalogController implements CatalogApi {
             Integer offset,
             Integer limit
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.licenses(transporterId, offset, limit));
     }
 
     @Override
@@ -80,6 +95,8 @@ public class CatalogController implements CatalogApi {
             Integer offset,
             Integer limit
     ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.ok(service.transporters(organizationId, transportKindId, offset, limit));
     }
 }

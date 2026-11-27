@@ -40,6 +40,7 @@
                                 <!-- Генерировать только интерфейсы контроллеров, без логики -->
                                 <interfaceOnly>true</interfaceOnly>
                                 <useTags>true</useTags>
+                                <openApiNullable>false</openApiNullable>
                                 <!-- Выключить генерацию дефолтного кода интерфейсов АПИ -->
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <!-- Использовать Spring Boot 3.x (Jakarta API вместо javax) -->

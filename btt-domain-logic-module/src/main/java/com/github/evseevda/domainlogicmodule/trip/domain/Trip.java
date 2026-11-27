@@ -16,6 +16,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -45,6 +46,9 @@ public class Trip {
     @Convert(converter = TripStatusConverter.class)
     @Column(name = "status", nullable = false)
     private TripStatus status;
+
+    @Column(name = "base_price", precision = 12, scale = 2)
+    private BigDecimal basePrice;
 
     protected Trip() {
     }

@@ -2,7 +2,8 @@ package com.github.evseevda.domainlogicmodule.registration.certificate.domain;
 
 public enum RegistrationCertificateVersionStatus {
     CURRENT(1),
-    ARCHIVED(2);
+    ARCHIVED(2),
+    REVOKED(3);
 
     private final int id;
 

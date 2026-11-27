@@ -1,0 +1,402 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions_admin_cancellation" targetNamespace="https://btt.github.io/processes">
+  <bpmn:message id="Message_Assigned" name="blm_registration_executor_assigned">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:message id="Message_Decided" name="blm_registration_decision_submitted">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:message id="Message_Returned" name="blm_registration_decision_returned">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:message id="Message_Approved" name="blm_registration_decision_approved">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:message id="Message_Withdraw" name="blm_registration_withdrawal_requested">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=requestId" />
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:process id="blm_admin_cancellation" name="Отмена регистрации по инициативе администрации" isExecutable="true">
+    <bpmn:documentation>Тип заявления: 4. Сотрудник администрации подаёт заявление на отмену для текущей версии перевозчика. Назначение другого сотрудника требует transporter.admin-cancellation.assign и transporter.admin-cancellation.decide у назначающего, а взятие в работу и вынесение решения — transporter.admin-cancellation.decide. Исполнитель должен обладать этим разрешением. Согласование и возврат требуют transporter.admin-cancellation.approve. Сотрудник с обоими разрешениями может выполнить оба этапа. Отзыв доступен только подателю заявления до согласования, включая доработку. Разрешения, авторство и допустимость переходов проверяет бэкенд.</bpmn:documentation>
+    <bpmn:startEvent id="Submitted" name="Заявление подано">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:eventBasedGateway id="WaitAssignment" name="Ожидать исполнителя">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:outgoing>Flow_17</bpmn:outgoing>
+    </bpmn:eventBasedGateway>
+    <bpmn:intermediateCatchEvent id="Assigned" name="Назначено или взято в работу">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_Assigned" messageRef="Message_Assigned" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:serviceTask id="SaveAssignment" name="Закрепить исполнителя за заявлением">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_save_registration_assignment" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:eventBasedGateway id="WaitDecision" name="Ожидать решение">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:incoming>Flow_16</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+      <bpmn:outgoing>Flow_18</bpmn:outgoing>
+    </bpmn:eventBasedGateway>
+    <bpmn:intermediateCatchEvent id="DecisionSubmitted" name="Решение передано">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_DecisionSubmitted" messageRef="Message_Decided" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:serviceTask id="SaveDecision" name="Сохранить решение на согласование">
+      <bpmn:documentation>Сохранить решение и вернуть decisionType из сохранённой записи: 1 — одобрить, 2 — отказать. До согласования сохраняется возможность доработки.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_save_registration_decision" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:eventBasedGateway id="WaitApproval" name="Ожидать согласование">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+      <bpmn:outgoing>Flow_19</bpmn:outgoing>
+    </bpmn:eventBasedGateway>
+    <bpmn:intermediateCatchEvent id="DecisionApproved" name="Решение согласовано">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_DecisionApproved" messageRef="Message_Approved" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:exclusiveGateway id="DecisionOutcome" name="Тип решения">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="ApplyPositive" name="Отменить регистрацию и сохранить новый снимок">
+      <bpmn:documentation>Перевозчик становится неактивным. Создаются новая версия перевозчика с полным набором новых записей лицензий и связанная версия РУ, фиксирующая отмену. Прежняя версия РУ аннулируется и доступна в истории.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_apply_admin_cancellation" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Positive" name="Положительное решение">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="ApplyRefusal" name="Зафиксировать согласованный отказ">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_finalize_registration_refusal" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Refused" name="Отказ">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:intermediateCatchEvent id="DecisionReturned" name="Возвращено на доработку">
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_DecisionReturned" messageRef="Message_Returned" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:serviceTask id="ReturnForRevision" name="Вернуть решение исполнителю">
+      <bpmn:documentation>Сохранить причину возврата и оставить прежнего исполнителя. Новая редакция снова поступает на согласование.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_return_registration_decision" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:intermediateCatchEvent id="WithdrawAssignment" name="Отзыв до назначения">
+      <bpmn:incoming>Flow_17</bpmn:incoming>
+      <bpmn:outgoing>Flow_20</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_WithdrawAssignment" messageRef="Message_Withdraw" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:intermediateCatchEvent id="WithdrawDecision" name="Отзыв до решения или при доработке">
+      <bpmn:incoming>Flow_18</bpmn:incoming>
+      <bpmn:outgoing>Flow_21</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_WithdrawDecision" messageRef="Message_Withdraw" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:intermediateCatchEvent id="WithdrawApproval" name="Отзыв до согласования">
+      <bpmn:incoming>Flow_19</bpmn:incoming>
+      <bpmn:outgoing>Flow_22</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="Catch_WithdrawApproval" messageRef="Message_Withdraw" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:exclusiveGateway id="MergeWithdrawal">
+      <bpmn:incoming>Flow_20</bpmn:incoming>
+      <bpmn:incoming>Flow_21</bpmn:incoming>
+      <bpmn:incoming>Flow_22</bpmn:incoming>
+      <bpmn:outgoing>Flow_23</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="SaveWithdrawal" name="Зафиксировать отзыв подателем">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="blm_withdraw_registration_request" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_23</bpmn:incoming>
+      <bpmn:outgoing>Flow_24</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Withdrawn" name="Отозвано">
+      <bpmn:incoming>Flow_24</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Submitted" targetRef="WaitAssignment" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="WaitAssignment" targetRef="Assigned" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Assigned" targetRef="SaveAssignment" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="SaveAssignment" targetRef="WaitDecision" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="WaitDecision" targetRef="DecisionSubmitted" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="DecisionSubmitted" targetRef="SaveDecision" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="SaveDecision" targetRef="WaitApproval" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="WaitApproval" targetRef="DecisionApproved" />
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="DecisionApproved" targetRef="DecisionOutcome" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="DecisionOutcome" targetRef="ApplyPositive" name="Одобрить">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=decisionType = 1</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="ApplyPositive" targetRef="Positive" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="DecisionOutcome" targetRef="ApplyRefusal" name="Отказать">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=decisionType = 2</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="ApplyRefusal" targetRef="Refused" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="WaitApproval" targetRef="DecisionReturned" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="DecisionReturned" targetRef="ReturnForRevision" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="ReturnForRevision" targetRef="WaitDecision" />
+    <bpmn:sequenceFlow id="Flow_17" sourceRef="WaitAssignment" targetRef="WithdrawAssignment" />
+    <bpmn:sequenceFlow id="Flow_18" sourceRef="WaitDecision" targetRef="WithdrawDecision" />
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="WaitApproval" targetRef="WithdrawApproval" />
+    <bpmn:sequenceFlow id="Flow_20" sourceRef="WithdrawAssignment" targetRef="MergeWithdrawal" />
+    <bpmn:sequenceFlow id="Flow_21" sourceRef="WithdrawDecision" targetRef="MergeWithdrawal" />
+    <bpmn:sequenceFlow id="Flow_22" sourceRef="WithdrawApproval" targetRef="MergeWithdrawal" />
+    <bpmn:sequenceFlow id="Flow_23" sourceRef="MergeWithdrawal" targetRef="SaveWithdrawal" />
+    <bpmn:sequenceFlow id="Flow_24" sourceRef="SaveWithdrawal" targetRef="Withdrawn" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_admin_cancellation">
+    <bpmndi:BPMNPlane id="Plane_admin_cancellation" bpmnElement="blm_admin_cancellation">
+      <bpmndi:BPMNShape id="Shape_Submitted" bpmnElement="Submitted">
+        <dc:Bounds x="75" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="19.0" y="205" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WaitAssignment" bpmnElement="WaitAssignment">
+        <dc:Bounds x="200" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="59" y="217" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Assigned" bpmnElement="Assigned">
+        <dc:Bounds x="320" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="264.0" y="205" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SaveAssignment" bpmnElement="SaveAssignment">
+        <dc:Bounds x="430" y="146" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WaitDecision" bpmnElement="WaitDecision">
+        <dc:Bounds x="620" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="479" y="217" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DecisionSubmitted" bpmnElement="DecisionSubmitted">
+        <dc:Bounds x="735" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="679.0" y="205" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SaveDecision" bpmnElement="SaveDecision">
+        <dc:Bounds x="845" y="146" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WaitApproval" bpmnElement="WaitApproval">
+        <dc:Bounds x="1035" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="894" y="217" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DecisionApproved" bpmnElement="DecisionApproved">
+        <dc:Bounds x="1150" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1094.0" y="205" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DecisionOutcome" bpmnElement="DecisionOutcome" isMarkerVisible="true">
+        <dc:Bounds x="1260" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1119" y="217" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ApplyPositive" bpmnElement="ApplyPositive">
+        <dc:Bounds x="1450" y="146" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Positive" bpmnElement="Positive">
+        <dc:Bounds x="1670" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1614.0" y="205" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ApplyRefusal" bpmnElement="ApplyRefusal">
+        <dc:Bounds x="1450" y="260" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Refused" bpmnElement="Refused">
+        <dc:Bounds x="1670" y="276" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1614.0" y="319" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DecisionReturned" bpmnElement="DecisionReturned">
+        <dc:Bounds x="1042" y="55" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="986.0" y="98" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ReturnForRevision" bpmnElement="ReturnForRevision">
+        <dc:Bounds x="785" y="39" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WithdrawAssignment" bpmnElement="WithdrawAssignment">
+        <dc:Bounds x="207" y="378" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="250" y="383" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WithdrawDecision" bpmnElement="WithdrawDecision">
+        <dc:Bounds x="627" y="378" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="670" y="383" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_WithdrawApproval" bpmnElement="WithdrawApproval">
+        <dc:Bounds x="1042" y="378" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1085" y="383" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_MergeWithdrawal" bpmnElement="MergeWithdrawal" isMarkerVisible="true">
+        <dc:Bounds x="1200" y="480" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SaveWithdrawal" bpmnElement="SaveWithdrawal">
+        <dc:Bounds x="1350" y="471" width="145" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Withdrawn" bpmnElement="Withdrawn">
+        <dc:Bounds x="1560" y="487" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1504.0" y="530" width="148" height="38" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow_1">
+        <di:waypoint x="111" y="180.0" />
+        <di:waypoint x="200" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow_2">
+        <di:waypoint x="250" y="180.0" />
+        <di:waypoint x="320" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow_3">
+        <di:waypoint x="356" y="180.0" />
+        <di:waypoint x="430" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow_4">
+        <di:waypoint x="575" y="180.0" />
+        <di:waypoint x="620" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow_5">
+        <di:waypoint x="670" y="180.0" />
+        <di:waypoint x="735" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow_6">
+        <di:waypoint x="771" y="180.0" />
+        <di:waypoint x="845" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_7" bpmnElement="Flow_7">
+        <di:waypoint x="990" y="180.0" />
+        <di:waypoint x="1035" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_8" bpmnElement="Flow_8">
+        <di:waypoint x="1085" y="180.0" />
+        <di:waypoint x="1150" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_9" bpmnElement="Flow_9">
+        <di:waypoint x="1186" y="180.0" />
+        <di:waypoint x="1260" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_10" bpmnElement="Flow_10">
+        <di:waypoint x="1310" y="180.0" />
+        <di:waypoint x="1450" y="180.0" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1350" y="151" width="75" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_11" bpmnElement="Flow_11">
+        <di:waypoint x="1595" y="180.0" />
+        <di:waypoint x="1670" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_12" bpmnElement="Flow_12">
+        <di:waypoint x="1285" y="205" />
+        <di:waypoint x="1285" y="294" />
+        <di:waypoint x="1450" y="294" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1350" y="265" width="75" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_13" bpmnElement="Flow_13">
+        <di:waypoint x="1595" y="294.0" />
+        <di:waypoint x="1670" y="294.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_14" bpmnElement="Flow_14">
+        <di:waypoint x="1060" y="155" />
+        <di:waypoint x="1060" y="91" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_15" bpmnElement="Flow_15">
+        <di:waypoint x="1042" y="73" />
+        <di:waypoint x="930" y="73" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_16" bpmnElement="Flow_16">
+        <di:waypoint x="785" y="73" />
+        <di:waypoint x="645" y="73" />
+        <di:waypoint x="645" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_17" bpmnElement="Flow_17">
+        <di:waypoint x="225" y="205" />
+        <di:waypoint x="225" y="378" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_18" bpmnElement="Flow_18">
+        <di:waypoint x="645" y="205" />
+        <di:waypoint x="645" y="378" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_19" bpmnElement="Flow_19">
+        <di:waypoint x="1060" y="205" />
+        <di:waypoint x="1060" y="378" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_20" bpmnElement="Flow_20">
+        <di:waypoint x="225" y="414" />
+        <di:waypoint x="225" y="530" />
+        <di:waypoint x="1225" y="530" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_21" bpmnElement="Flow_21">
+        <di:waypoint x="645" y="414" />
+        <di:waypoint x="645" y="505" />
+        <di:waypoint x="1200" y="505" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_22" bpmnElement="Flow_22">
+        <di:waypoint x="1060" y="414" />
+        <di:waypoint x="1060" y="463" />
+        <di:waypoint x="1225" y="463" />
+        <di:waypoint x="1225" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_23" bpmnElement="Flow_23">
+        <di:waypoint x="1250" y="505.0" />
+        <di:waypoint x="1350" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_24" bpmnElement="Flow_24">
+        <di:waypoint x="1495" y="505.0" />
+        <di:waypoint x="1560" y="505.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

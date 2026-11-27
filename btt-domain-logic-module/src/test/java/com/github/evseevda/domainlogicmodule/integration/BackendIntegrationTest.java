@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"spring.cloud.discovery.enabled=false", "btt.zeebe.url=false"})
+        properties = {"spring.cloud.discovery.enabled=false", "camunda.client.enabled=false"})
 @EnabledIfEnvironmentVariable(named = "BTT_TEST_DB_URL", matches = "jdbc:postgresql:.*")
 class BackendIntegrationTest {
     private static final String PASSWORD = "integration-password-123";

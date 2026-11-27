@@ -20,20 +20,15 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static com.github.evseevda.domainlogicmodule.workflow.BpmnEventNames.*;
+import static com.github.evseevda.domainlogicmodule.workflow.BpmnJobTypes.*;
 
 /** Проверяет команды по регистрации перевозчика и выполняет переходы, полученные из Zeebe. */
 @Service
 @Profile("!mock-api")
 public class RegistrationRequests implements WorkflowJobHandler {
-    private static final String ASSIGN_JOB = "blm_save_registration_assignment";
-    private static final String DECISION_JOB = "blm_save_registration_decision";
-    private static final String RETURN_JOB = "blm_return_registration_decision";
-    private static final String WITHDRAW_JOB = "blm_withdraw_registration_request";
-    private static final String REFUSAL_JOB = "blm_finalize_registration_refusal";
 
     private final JdbcClient db;
     private final WorkflowCommands workflow;
@@ -125,7 +120,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
                 bad("У назначаемого сотрудника нет разрешения вынести решение");
             }
         }
-        queue(request, ASSIGN_JOB, REGISTRATION_EXECUTOR_ASSIGNED, Map.of("executorId", executor.toString()));
+        queue(request, REGISTRATION_ASSIGNMENT, REGISTRATION_EXECUTOR_ASSIGNED, Map.of("executorId", executor.toString()));
         return request.dto();
     }
 
@@ -147,7 +142,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
                 .param("type", form.getType().getValue()).param("comment", form.getComment())
                 .param("description", form.getChangeDescription()).update();
         var decision = decision(id);
-        queue(request, DECISION_JOB, REGISTRATION_DECISION_SUBMITTED, Map.of("revision", decision.getRevision()));
+        queue(request, REGISTRATION_DECISION, REGISTRATION_DECISION_SUBMITTED, Map.of("revision", decision.getRevision()));
         return decision;
     }
 
@@ -162,11 +157,11 @@ public class RegistrationRequests implements WorkflowJobHandler {
         if (decision.getRevision() != revision) conflict("Редакция решения изменилась");
         if (returnReason != null) {
             if (returnReason.isBlank()) bad("Укажите причину возврата");
-            queue(request, RETURN_JOB, REGISTRATION_DECISION_RETURNED,
+            queue(request, REGISTRATION_RETURN, REGISTRATION_DECISION_RETURNED,
                     Map.of("revision", revision, "returnReason", returnReason.strip()));
         } else {
             int result = decision.getType().getValue();
-            queue(request, result == 2 ? REFUSAL_JOB : "blm_apply_" + process(type(request)).substring(4),
+            queue(request, result == 2 ? REGISTRATION_REFUSAL : positiveJob(type(request)),
                     REGISTRATION_DECISION_APPROVED,
                     Map.of("revision", revision, "reviewerId", reviewer.toString()));
         }
@@ -179,15 +174,8 @@ public class RegistrationRequests implements WorkflowJobHandler {
         var request = find(id, true);
         requireApplicant(request);
         requireState(request, 1, 2, 6, 7);
-        queue(request, WITHDRAW_JOB, BpmnEventNames.REGISTRATION_WITHDRAWAL_REQUESTED, Map.of());
+        queue(request, REGISTRATION_WITHDRAW, BpmnEventNames.REGISTRATION_WITHDRAWAL_REQUESTED, Map.of());
         return request.dto();
-    }
-
-    /** Возвращает типы заданий, поддерживаемые этим обработчиком. */
-    @Override
-    public Set<String> jobTypes() {
-        return Set.of(ASSIGN_JOB, DECISION_JOB, RETURN_JOB, WITHDRAW_JOB, REFUSAL_JOB, "blm_apply_initial_registration",
-                "blm_apply_registration_amendment", "blm_apply_carrier_cancellation", "blm_apply_admin_cancellation");
     }
 
     /** Выполняет переход заявления. Повтор задания возвращает сохранённый результат команды. */
@@ -207,20 +195,20 @@ public class RegistrationRequests implements WorkflowJobHandler {
         }
         Integer result = null;
         switch (job) {
-            case ASSIGN_JOB -> {
+            case REGISTRATION_ASSIGNMENT -> {
                 db.sql("UPDATE request SET executor_id = :executor, status = 2 WHERE id = :id")
                         .param("executor", uuid(variables, "executorId")).param("id", id).update();
             }
-            case DECISION_JOB -> {
+            case REGISTRATION_DECISION -> {
                 result = decision(id).getType().getValue();
                 updateStatus(id, 6);
             }
-            case RETURN_JOB -> {
+            case REGISTRATION_RETURN -> {
                 db.sql("UPDATE decision SET return_reason = :reason WHERE request_id = :id")
                         .param("reason", variables.path("returnReason").asText()).param("id", id).update();
                 updateStatus(id, 7);
             }
-            case WITHDRAW_JOB -> updateStatus(id, 5);
+            case REGISTRATION_WITHDRAW -> updateStatus(id, 5);
             default -> finish(request, job, variables);
         }
         db.sql("INSERT INTO registration_processed_command (id, request_id, decision_type) VALUES (:id, :request, :decision)")
@@ -236,7 +224,7 @@ public class RegistrationRequests implements WorkflowJobHandler {
         if (decision.getRevision() != vars.path("revision").asInt()) {
             throw new IllegalStateException("Decision revision changed for " + id);
         }
-        boolean approved = !REFUSAL_JOB.equals(job);
+        boolean approved = !REGISTRATION_REFUSAL.equals(job);
         if (approved != (decision.getType().getValue() == 1)) {
             throw new IllegalStateException("Unexpected decision result for " + id);
         }
@@ -337,6 +325,16 @@ public class RegistrationRequests implements WorkflowJobHandler {
             case 4 -> "transporter.admin-cancellation.";
             default -> throw new IllegalArgumentException("Unknown registration type " + type);
         } + action;
+    }
+
+    private static String positiveJob(int type) {
+        return switch (type) {
+            case 1 -> INITIAL_REGISTRATION;
+            case 2 -> REGISTRATION_AMENDMENT;
+            case 3 -> CARRIER_CANCELLATION;
+            case 4 -> ADMIN_CANCELLATION;
+            default -> throw new IllegalArgumentException("Unknown registration type " + type);
+        };
     }
 
     private static String process(int type) {

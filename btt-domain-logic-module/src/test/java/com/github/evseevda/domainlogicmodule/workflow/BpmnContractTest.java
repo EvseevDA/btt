@@ -1,5 +1,6 @@
 package com.github.evseevda.domainlogicmodule.workflow;
 
+import io.camunda.client.annotation.JobWorker;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.w3c.dom.Element;
@@ -26,6 +27,7 @@ class BpmnContractTest {
         assertEquals(6, resources.length);
 
         var names = new HashSet<String>();
+        var jobTypes = new HashSet<String>();
         for (var resource : resources) {
             try (var stream = resource.getInputStream()) {
                 var model = parser.newDocumentBuilder().parse(stream);
@@ -36,6 +38,11 @@ class BpmnContractTest {
                 var start = process.getElementsByTagNameNS(BPMN, "startEvent");
                 assertEquals(1, start.getLength());
                 assertEquals(0, ((Element) start.item(0)).getElementsByTagNameNS(BPMN, "messageEventDefinition").getLength());
+
+                var jobs = process.getElementsByTagNameNS(ZEEBE, "taskDefinition");
+                for (int i = 0; i < jobs.getLength(); i++) {
+                    jobTypes.add(((Element) jobs.item(i)).getAttribute("type"));
+                }
 
                 NodeList definitions = model.getElementsByTagNameNS(BPMN, "message");
                 var ids = new HashSet<String>();
@@ -63,5 +70,15 @@ class BpmnContractTest {
             }
         }
         assertEquals(constants, names);
+
+        var workers = new HashSet<String>();
+        for (var method : BttJobWorkers.class.getDeclaredMethods()) {
+            var worker = method.getAnnotation(JobWorker.class);
+            if (worker != null) {
+                assertTrue(workers.add(worker.type()), "Duplicate job worker: " + worker.type());
+                assertFalse(worker.autoComplete());
+            }
+        }
+        assertEquals(jobTypes, workers);
     }
 }

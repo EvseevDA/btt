@@ -23,19 +23,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+
+import static com.github.evseevda.domainlogicmodule.workflow.BpmnJobTypes.*;
 
 /** Обрабатывает заявки на подключение организаций и вступление в них, а также итоговые задачи Zeebe. */
 @Service
 @Profile("!mock-api")
 public class OrganizationRequests implements WorkflowJobHandler {
     private static final String REVIEW_REGISTRATION = "organization.registration.decide";
-    private static final String REGISTRATION_APPROVE = "blm_organization_registration_approve";
-    private static final String REGISTRATION_REJECT = "blm_organization_registration_reject";
 
-    private static final String MEMBERSHIP_APPROVE = "blm_organization_membership_approve";
-    private static final String MEMBERSHIP_REJECT = "blm_organization_membership_reject";
 
     private final JdbcClient db;
     private final WorkflowCommands workflow;
@@ -170,12 +167,6 @@ public class OrganizationRequests implements WorkflowJobHandler {
         return find(id, false);
     }
 
-    /** Возвращает типы заданий, поддерживаемые этим обработчиком. */
-    @Override
-    public Set<String> jobTypes() {
-        return Set.of(REGISTRATION_APPROVE, REGISTRATION_REJECT, MEMBERSHIP_APPROVE, MEMBERSHIP_REJECT);
-    }
-
     /** Применяет сохранённый результат проверки и сохраняет организацию или членство при одобрении. */
     @Override
     @Transactional
@@ -183,8 +174,8 @@ public class OrganizationRequests implements WorkflowJobHandler {
         UUID id = UUID.fromString(variables.path("requestId").asText());
         var request = find(id, true);
         if (request.getStatus() != 1) return Map.of();
-        boolean registration = REGISTRATION_APPROVE.equals(type) || REGISTRATION_REJECT.equals(type);
-        boolean approved = REGISTRATION_APPROVE.equals(type) || MEMBERSHIP_APPROVE.equals(type);
+        boolean registration = ORGANIZATION_REGISTRATION_APPROVE.equals(type) || ORGANIZATION_REGISTRATION_REJECT.equals(type);
+        boolean approved = ORGANIZATION_REGISTRATION_APPROVE.equals(type) || ORGANIZATION_MEMBERSHIP_APPROVE.equals(type);
         var pending = db.sql("SELECT pending_approval FROM organization_request WHERE id = :id")
                 .param("id", id).query(Boolean.class).optional();
         if (request.getDecidedById() == null || registration != (request.getType() == 1)

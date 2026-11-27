@@ -4,6 +4,8 @@ import com.github.evseevda.domainlogicmodule.organization.service.OrganizationRe
 import com.github.evseevda.domainlogicmodule.registration.service.RegistrationRequests;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -164,6 +166,265 @@ class BackendIntegrationTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void duplicateOrganizationRequestIsBlockedAndRejectionAllowsResubmission() throws Exception {
+        var applicant = account(false);
+        var reviewer = account(true);
+        var form = organizationForm();
+        var first = expect(201, post("/organization-registrations", applicant.token(), form));
+        UUID request = id(first, "id");
+        String path = "/organization-requests/" + request;
+        expect(409, post("/organization-registrations", applicant.token(), form));
+        expect(400, post(path + "/decision", reviewer.token(), Map.of("approved", false)));
+        expect(202, post(path + "/decision", reviewer.token(),
+                Map.of("approved", false, "comment", "No authorization")));
+        organizations.handle("blm_organization_registration_reject", command(request));
+
+        var rejected = expect(200, get(path, applicant.token()));
+        assertEquals(3, rejected.path("status").asInt());
+        assertEquals("No authorization", rejected.path("decisionComment").asText());
+        assertFalse(rejected.hasNonNull("organizationId"));
+        expect(201, post("/organization-registrations", applicant.token(), form));
+    }
+
+    @Test
+    void anotherOrganizationCannotReviewMembershipAndARejectedRequestGrantsNoAccess() throws Exception {
+        var administrator = account(true);
+        var owner = account(false);
+        var otherOwner = account(false);
+        var applicant = account(false);
+        UUID organization = connect(owner, administrator);
+        connect(otherOwner, administrator);
+        UUID membership = id(expect(201, post("/organization-memberships", applicant.token(),
+                Map.of("organizationId", organization))), "id");
+        String path = "/organization-requests/" + membership;
+        expect(403, post(path + "/decision", otherOwner.token(), Map.of("approved", true)));
+        expect(403, post(path + "/decision", administrator.token(), Map.of("approved", true)));
+        expect(202, post(path + "/decision", owner.token(), Map.of("approved", false, "comment", "Unknown employee")));
+        organizations.handle("blm_organization_membership_reject", command(membership));
+
+        assertEquals(3, expect(200, get(path, applicant.token())).path("status").asInt());
+        var draft = Map.of("type", 1, "organizationId", organization,
+                "transporterData", Map.of("transportKindId", kind(), "licenses", List.of()));
+        expect(403, post("/registration-requests", applicant.token(), draft));
+    }
+
+    @Test
+    void approvedMembershipNeedsExplicitDelegationToRepresentOrganization() throws Exception {
+        var administrator = account(true);
+        var owner = account(false);
+        var member = account(false);
+        UUID organization = connect(owner, administrator);
+        UUID membership = id(expect(201, post("/organization-memberships", member.token(),
+                Map.of("organizationId", organization))), "id");
+        expect(202, post("/organization-requests/" + membership + "/decision", owner.token(), Map.of("approved", true)));
+        organizations.handle("blm_organization_membership_approve", command(membership));
+        var draft = Map.of("type", 1, "organizationId", organization,
+                "transporterData", Map.of("transportKindId", kind(), "licenses", List.of()));
+        expect(403, post("/registration-requests", member.token(), draft));
+        String permissions = "/transporter-organizations/" + organization + "/members/" + member.id() + "/permissions";
+        var delegation = Map.of("canRepresent", true, "canConfirmMembers", false);
+        expect(403, send("PUT", permissions, administrator.token(), delegation));
+        expect(204, send("PUT", permissions, owner.token(), delegation));
+        expect(201, post("/registration-requests", member.token(), draft));
+    }
+
+    @Test
+    void staffCanBeRegisteredOnlyByAnAuthorizedAccount() throws Exception {
+        var admin = account(true);
+        var candidate = account(false);
+        String name = "employee-" + UUID.randomUUID();
+        var form = Map.of("username", name, "email", name + "@example.test", "fullName", "New employee",
+                "password", PASSWORD, "roleNames", List.of("REGISTRATION_EXECUTOR"));
+        expect(401, post("/users", null, form));
+        expect(403, post("/users", candidate.token(), form));
+        UUID employee = id(expect(201, post("/users", admin.token(), form)), "id");
+        String roles = "/users/" + employee + "/roles";
+        expect(403, get(roles, candidate.token()));
+        assertEquals("REGISTRATION_EXECUTOR", expect(200, get(roles, admin.token())).get(0).path("name").asText());
+    }
+
+    @Test
+    void approvedRefusalDoesNotCreateTransporterOrCertificate() throws Exception {
+        var admin = account(true);
+        var owner = account(false);
+        UUID organization = connect(owner, admin);
+        UUID request = submit(1, owner, organization, null, kind());
+        finalizeDecision(request, admin, 2, "blm_finalize_registration_refusal");
+
+        var result = expect(200, get(carrierPath(request), owner.token()));
+        assertEquals(4, result.path("status").asInt());
+        assertFalse(result.hasNonNull("transporterId"));
+        assertTrue(expect(200, get("/transporters?organizationId=" + organization, owner.token())).isEmpty());
+    }
+
+    @Test
+    void amendmentCreatesNewLicenseRecordsAndKeepsOldSnapshotReadable() throws Exception {
+        var admin = account(true);
+        var owner = account(false);
+        UUID organization = connect(owner, admin);
+        UUID firstKind = kind();
+        UUID secondKind = kind();
+        UUID transporter = registerCarrier(owner, admin, organization, firstKind);
+
+        UUID amendment = submit(2, owner, organization, transporter, secondKind);
+        finalizeDecision(amendment, admin, 1, "blm_apply_registration_amendment");
+        var versions = history(transporter, owner);
+        assertEquals(2, versions.size());
+        assertEquals(1, versions.get(0).path("status").asInt());
+        assertEquals(2, versions.get(1).path("status").asInt());
+        var current = snapshot(transporter, versions.get(0), owner);
+        var prior = snapshot(transporter, versions.get(1), owner);
+        assertEquals(secondKind, id(current, "transportKindId"));
+        assertEquals(firstKind, id(prior, "transportKindId"));
+        assertEquals(current.get("licenses").get(0).path("licenseNumber"), prior.get("licenses").get(0).path("licenseNumber"));
+        assertNotEquals(id(current.get("licenses").get(0), "id"), id(prior.get("licenses").get(0), "id"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {3, 4})
+    void bothCancellationProcessesRevokeTheOldCertificateVersionAndKeepHistory(int type) throws Exception {
+        var admin = account(true);
+        var owner = account(false);
+        UUID organization = connect(owner, admin);
+        UUID transportKind = kind();
+        UUID transporter = registerCarrier(owner, admin, organization, transportKind);
+        Account submitter = type == 3 ? owner : admin;
+
+        UUID cancellation = submit(type, submitter, organization, transporter, null);
+        finalizeDecision(cancellation, admin, 1,
+                type == 3 ? "blm_apply_carrier_cancellation" : "blm_apply_admin_cancellation");
+        assertEquals(2, expect(200, get("/transporters/" + transporter, owner.token())).path("status").asInt());
+        var certificate = expect(200, get("/transporters/" + transporter + "/registration-certificate", owner.token()));
+        assertEquals(2, certificate.path("status").asInt());
+        var versions = history(transporter, owner);
+        assertEquals(2, versions.size());
+        assertEquals(3, versions.get(1).path("status").asInt());
+        assertEquals(id(versions.get(0), "id"), id(certificate, "currentVersionId"));
+        assertNotEquals(id(snapshot(transporter, versions.get(0), owner).get("licenses").get(0), "id"),
+                id(snapshot(transporter, versions.get(1), owner).get("licenses").get(0), "id"));
+        if (type == 4) expect(404, get(carrierPath(cancellation), owner.token()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 6, 7})
+    void onlyApplicantCanWithdrawAtEveryWaitingStage(int status) throws Exception {
+        var admin = account(true);
+        var owner = account(false);
+        UUID organization = connect(owner, admin);
+        UUID request = submit(1, owner, organization, null, kind());
+        String path = carrierPath(request);
+        if (status != 1) claim(request, admin);
+        if (status == 6 || status == 7) {
+            int revision = decision(request, admin, 1);
+            if (status == 7) {
+                expect(202, post(path + "/return", admin.token(), Map.of("revision", revision, "reason", "Revise")));
+                registrations.handle("blm_return_registration_decision", command(request));
+            }
+        }
+        assertEquals(status, expect(200, get(path, owner.token())).path("status").asInt());
+        expect(403, post(path + "/withdraw", admin.token(), null));
+        expect(202, post(path + "/withdraw", owner.token(), null));
+        registrations.handle("blm_withdraw_registration_request", command(request));
+        var withdrawn = expect(200, get(path, owner.token()));
+        assertEquals(5, withdrawn.path("status").asInt());
+        assertFalse(withdrawn.hasNonNull("transporterId"));
+        expect(409, post(path + "/withdraw", owner.token(), null));
+    }
+
+    @Test
+    void tripSearchFiltersByRouteEndpointsPriceAndAvailability() throws Exception {
+        var passenger = account(false);
+        UUID trip = scheduledTrip();
+        var details = expect(200, get("/trips/" + trip, passenger.token()));
+        UUID route = id(details, "routeId");
+        String search = "/trips?routeId=" + route + "&source=Source&destination=Destination&bookableOnly=true";
+        assertEquals(trip, id(expect(200, get(search + "&maxPrice=100", passenger.token())).get(0), "id"));
+        assertTrue(expect(200, get(search + "&maxPrice=90", passenger.token())).isEmpty());
+        expect(201, post("/tickets", passenger.token(), Map.of("tripId", trip)));
+        assertTrue(expect(200, get(search, passenger.token())).isEmpty());
+        assertEquals(1, expect(200, get("/tickets?tripId=" + trip, passenger.token())).size());
+    }
+
+    @Test
+    void departedTripsRejectBookingAndCancellation() throws Exception {
+        var passenger = account(false);
+        UUID trip = scheduledTrip();
+        UUID ticket = id(expect(201, post("/tickets", passenger.token(), Map.of("tripId", trip))), "id");
+        db.sql("""
+                UPDATE trip SET departure_at = timezone('UTC', now()) - interval '1 hour',
+                    arrival_at = timezone('UTC', now()) + interval '1 hour' WHERE id = :trip
+                """).param("trip", trip).update();
+        expect(409, post("/tickets", passenger.token(), Map.of("tripId", trip)));
+        expect(409, post("/tickets/" + ticket + "/cancel", passenger.token(), null));
+        assertEquals(1, expect(200, get("/tickets/" + ticket, passenger.token())).path("status").asInt());
+    }
+
+    private UUID connect(Account owner, Account reviewer) throws Exception {
+        UUID request = id(expect(201, post("/organization-registrations", owner.token(), organizationForm())), "id");
+        String path = "/organization-requests/" + request;
+        expect(202, post(path + "/decision", reviewer.token(), Map.of("approved", true)));
+        organizations.handle("blm_organization_registration_approve", command(request));
+        return id(expect(200, get(path, owner.token())), "organizationId");
+    }
+
+    private Map<String, String> organizationForm() {
+        String suffix = String.format(java.util.Locale.ROOT, "%08d",
+                java.util.concurrent.ThreadLocalRandom.current().nextInt(100_000_000));
+        return Map.of("name", "Integration Organization " + suffix, "inn", "52" + suffix, "ogrn", "10252" + suffix,
+                "legalAddress", "Test address", "authorityEvidence", "Test authorization");
+    }
+
+    private UUID submit(int type, Account submitter, UUID organization, UUID transporter, UUID transportKind) throws Exception {
+        var form = new java.util.HashMap<String, Object>(Map.of("type", type, "organizationId", organization));
+        if (transporter != null) form.put("transporterId", transporter);
+        if (transportKind != null) {
+            var license = Map.of("licenseNumber", "LIC-1", "issuedAt", "2026-01-01", "expiresAt", "2040-01-01",
+                    "issuingAuthority", "Test authority");
+            form.put("transporterData", Map.of("transportKindId", transportKind, "licenses", List.of(license)));
+        }
+        UUID request = id(expect(201, post("/registration-requests", submitter.token(), form)), "id");
+        expect(200, post(carrierPath(request) + "/submit", submitter.token(), null));
+        return request;
+    }
+
+    private UUID registerCarrier(Account owner, Account admin, UUID organization, UUID transportKind) throws Exception {
+        UUID request = submit(1, owner, organization, null, transportKind);
+        finalizeDecision(request, admin, 1, "blm_apply_initial_registration");
+        return id(expect(200, get(carrierPath(request), owner.token())), "transporterId");
+    }
+
+    private void claim(UUID request, Account admin) throws Exception {
+        expect(202, post(carrierPath(request) + "/claim", admin.token(), null));
+        registrations.handle("blm_save_registration_assignment", command(request));
+    }
+
+    private int decision(UUID request, Account admin, int type) throws Exception {
+        var response = expect(201, post(carrierPath(request) + "/decision", admin.token(), Map.of("type", type)));
+        registrations.handle("blm_save_registration_decision", command(request));
+        return response.path("revision").asInt();
+    }
+
+    private void finalizeDecision(UUID request, Account admin, int type, String job) throws Exception {
+        claim(request, admin);
+        int revision = decision(request, admin, type);
+        expect(202, post(carrierPath(request) + "/approve", admin.token(), Map.of("revision", revision)));
+        registrations.handle(job, command(request));
+    }
+
+    private JsonNode history(UUID transporter, Account owner) throws Exception {
+        var certificate = expect(200, get("/transporters/" + transporter + "/registration-certificate", owner.token()));
+        return expect(200, get("/registration-certificates/" + id(certificate, "id") + "/versions", owner.token()));
+    }
+
+    private JsonNode snapshot(UUID transporter, JsonNode version, Account owner) throws Exception {
+        return expect(200, get("/transporters/" + transporter + "/versions/" + id(version, "transporterVersionId"), owner.token()));
+    }
+
+    private static String carrierPath(UUID request) {
+        return "/registration-requests/" + request;
     }
 
     private Account account(boolean admin) throws Exception {

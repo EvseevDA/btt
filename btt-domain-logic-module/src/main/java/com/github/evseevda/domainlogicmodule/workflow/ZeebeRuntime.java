@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -74,7 +75,13 @@ public class ZeebeRuntime {
         for (int i = 0; i < 20; i++) {
             if (!Boolean.TRUE.equals(transactions.execute(status -> dispatch()))) break;
         }
-        handlers.forEach(this::pollJobs);
+        handlers.forEach((type, handler) -> {
+            try {
+                pollJobs(type, handler);
+            } catch (RuntimeException ex) {
+                LOG.warn("Could not poll Zeebe jobs of type {}: {}", type, ex.getClass().getSimpleName());
+            }
+        });
     }
 
     private void deploy() throws IOException {
@@ -91,18 +98,37 @@ public class ZeebeRuntime {
 
     private boolean dispatch() {
         var next = db.sql("""
-                SELECT id, request_id, process_id, message_name, variables FROM workflow_command
-                WHERE delivered_at IS NULL ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+                SELECT w.id, w.request_id, w.process_id, w.message_name, w.variables, w.attempt_count
+                FROM workflow_command w
+                WHERE w.delivered_at IS NULL AND w.next_attempt_at <= timezone('UTC', clock_timestamp())
+                  AND NOT EXISTS (SELECT 1 FROM workflow_command earlier
+                      WHERE earlier.request_id = w.request_id AND earlier.delivered_at IS NULL
+                        AND (earlier.created_at, earlier.id) < (w.created_at, w.id))
+                ORDER BY w.created_at, w.id LIMIT 1 FOR UPDATE OF w SKIP LOCKED
                 """).query((rs, row) -> new Command(rs.getObject("id", UUID.class),
                         rs.getObject("request_id", UUID.class), rs.getString("process_id"),
-                        rs.getString("message_name"), json.readTree(rs.getString("variables")))).optional();
+                        rs.getString("message_name"), json.readTree(rs.getString("variables")),
+                        rs.getInt("attempt_count"))).optional();
         if (next.isEmpty()) return false;
         var command = next.orElseThrow();
-        if (command.process() != null) {
-            post("/v2/process-instances", Map.of("processDefinitionId", command.process(), "variables", command.variables()));
-        } else {
-            post("/v2/messages/publication", Map.of("name", command.message(), "correlationKey", command.request().toString(),
-                    "messageId", command.id().toString(), "timeToLive", 86_400_000, "variables", command.variables()));
+        try {
+            if (command.process() != null) {
+                post("/v2/process-instances", Map.of("processDefinitionId", command.process(), "variables", command.variables()));
+            } else {
+                post("/v2/messages/publication", Map.of("name", command.message(),
+                        "correlationKey", command.request().toString(), "messageId", command.id().toString(),
+                        "timeToLive", 86_400_000, "variables", command.variables()));
+            }
+        } catch (RestClientException ex) {
+            int delay = 1 << Math.min(8, command.attempts());
+            db.sql("""
+                    UPDATE workflow_command SET attempt_count = attempt_count + 1,
+                        next_attempt_at = timezone('UTC', clock_timestamp()) + :delay * interval '1 second'
+                    WHERE id = :id
+                    """).param("delay", delay).param("id", command.id()).update();
+            LOG.warn("Zeebe command {} not acknowledged. Retry in {}s ({})",
+                    command.id(), delay, ex.getClass().getSimpleName());
+            return true;
         }
         db.sql("UPDATE workflow_command SET delivered_at = timezone('UTC', clock_timestamp()) WHERE id = :id")
                 .param("id", command.id()).update();
@@ -114,13 +140,20 @@ public class ZeebeRuntime {
                 "timeout", 30_000, "maxJobsToActivate", 4, "requestTimeout", -1));
         for (JsonNode job : payload.path("jobs")) {
             String key = job.path("jobKey").asText();
+            Map<String, ?> variables;
             try {
-                var variables = handler.handle(type, job.path("variables"));
-                post("/v2/jobs/" + key + "/completion", Map.of("variables", variables));
+                variables = handler.handle(type, job.path("variables"));
             } catch (RuntimeException ex) {
                 LOG.error("Zeebe job {} ({}) failed", key, type, ex);
                 post("/v2/jobs/" + key + "/failure", Map.of("retries", Math.max(0, job.path("retries").asInt() - 1),
                         "retryBackOff", 5_000, "errorMessage", "BTT workflow job failed: " + type));
+                continue;
+            }
+            // An unacknowledged completion may already have succeeded. Let the activation expire.
+            try {
+                post("/v2/jobs/" + key + "/completion", Map.of("variables", variables));
+            } catch (RestClientException ex) {
+                LOG.warn("Completion for Zeebe job {} was not acknowledged ({})", key, ex.getClass().getSimpleName());
             }
         }
     }
@@ -131,6 +164,6 @@ public class ZeebeRuntime {
         return response == null || response.isBlank() ? json.createObjectNode() : json.readTree(response);
     }
 
-    private record Command(UUID id, UUID request, String process, String message, JsonNode variables) {
+    private record Command(UUID id, UUID request, String process, String message, JsonNode variables, int attempts) {
     }
 }

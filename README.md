@@ -63,7 +63,16 @@
 
 ## Сборка
 
-Из корня `btt` выполните `mvn compile`. Профиль `local` подключается к PostgreSQL из Docker Compose. Для запуска без профиля `local` с внешней БД задайте `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` и `SPRING_DATASOURCE_PASSWORD`. При старте Flyway применяет миграции, затем Hibernate проверяет схему.
+Сначала установите родительский POM API и сгенерированные контракты в локальный репозиторий Maven, затем соберите приложение. Команды выполняются из корня `btt`.
+
+```sh
+mvn -f btt-api/pom.xml install
+mvn -f btt-domain-logic-module/pom.xml package
+```
+
+После изменений в OpenAPI повторите установку API перед сборкой приложения.
+
+Профиль `local` подключается к PostgreSQL из Docker Compose. Для запуска без профиля `local` с внешней БД задайте `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` и `SPRING_DATASOURCE_PASSWORD`. При старте Flyway применяет миграции, затем Hibernate проверяет схему.
 
 ### Локальная база PostgreSQL
 
@@ -71,7 +80,8 @@
 
 ```sh
 docker compose -f btt-domain-logic-module/docker-compose/docker-compose.yaml up -d --wait postgres
-mvn package
+mvn -f btt-api/pom.xml install
+mvn -f btt-domain-logic-module/pom.xml package
 java -jar btt-domain-logic-module/target/btt-domain-logic-module-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
@@ -85,7 +95,7 @@ docker compose -f btt-domain-logic-module/docker-compose/docker-compose.yaml exe
 
 ### Моковые контроллеры
 
-Для локальной проверки заглушек соберите приложение командой `mvn package` из корня `btt`:
+Соберите приложение по шагам выше и запустите его с профилем `mock-api`:
 
 ```sh
 java -jar btt-domain-logic-module/target/btt-domain-logic-module-0.0.1-SNAPSHOT.jar --spring.profiles.active=mock-api
@@ -96,24 +106,25 @@ curl -i http://127.0.0.1:8080/api/v1/trips
 
 ### Модульные и интеграционные тесты
 
-Из корня `btt` выполните `mvn test`. Модульные тесты проверяют разрешения, преобразование числовых кодов enum и соответствие BPMN Java-константам.
+После установки API выполните `mvn -f btt-domain-logic-module/pom.xml test` из корня `btt`. Модульные тесты проверяют разрешения, преобразование числовых кодов enum и соответствие BPMN Java-константам.
 
 Чтобы включить интеграционные тесты, задайте `BTT_TEST_DB_URL`, `BTT_TEST_DB_USER` и `BTT_TEST_DB_PASSWORD` для отдельной тестовой PostgreSQL. Тесты запускают Spring Boot на случайном порту, применяют миграции и создают тестовые данные. Для проверки переходов задания подаются напрямую Java-обработчикам с переменными из журнала команд. Интеграционные сценарии охватывают повторную подачу после отказа, границы полномочий сотрудников и представителей, четыре процесса перевозчика, отзыв на каждом этапе ожидания, историю лицензий, поиск рейсов и конкурентное бронирование. Сквозной сценарий ниже предназначен для проверки с работающим Zeebe.
 
 ```sh
 BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_integration \
-BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local mvn test
+BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local \
+mvn -f btt-domain-logic-module/pom.xml test
 ```
 
 ### Интеграционный тест с Zeebe
 
-Запустите отдельные тестовые PostgreSQL и Zeebe 8.8 с доступным gRPC без аутентификации. Тест поднимает приложение с включёнными воркерами, деплоит BPMN через Spring Boot Starter и проверяет одобрение и отказ в регистрации организации через HTTP API.
+Установите API по шагам сборки выше и запустите отдельные тестовые PostgreSQL и Zeebe 8.8 с доступным gRPC без аутентификации. Тест поднимает приложение с включёнными воркерами, деплоит BPMN через Spring Boot Starter и проверяет одобрение и отказ в регистрации организации через HTTP API.
 
 ```sh
 BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_zeebe_integration \
 BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local \
 BTT_ZEEBE_TEST_GRPC_ADDRESS=http://127.0.0.1:26500 \
-mvn -pl btt-domain-logic-module -am -Dtest=ZeebeWorkflowIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test
+mvn -f btt-domain-logic-module/pom.xml -Dtest=ZeebeWorkflowIntegrationTest test
 ```
 
 ### Сквозная проверка

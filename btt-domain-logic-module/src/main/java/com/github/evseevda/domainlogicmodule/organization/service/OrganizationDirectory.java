@@ -1,47 +1,44 @@
 package com.github.evseevda.domainlogicmodule.organization.service;
 
 import com.github.evseevda.domainlogic.model.TransporterOrganizationDto;
+import com.github.evseevda.domainlogicmodule.persistence.OffsetPage;
+import com.github.evseevda.domainlogicmodule.transporter.domain.TransporterOrganization;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.github.evseevda.domainlogicmodule.organization.repository.OrganizationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+/** Позволяет найти подключённое юридическое лицо для подачи заявки. */
 @Service
 @Profile("!mock-api")
 public class OrganizationDirectory {
-    private final JdbcClient db;
+    private final OrganizationRepository repository;
 
-    public OrganizationDirectory(JdbcClient db) {
-        this.db = db;
+    /** Создаёт сервис с доступом к базе данных. */
+    public OrganizationDirectory(OrganizationRepository repository) {
+        this.repository = repository;
     }
 
+    /** Возвращает подключённую организацию по её идентификатору. */
     public TransporterOrganizationDto get(UUID id) {
-        return db.sql("""
-                SELECT id, name, inn, ogrn, legal_address, created_at FROM transporter_organization WHERE id = :id
-                """).param("id", id).query((rs, row) -> organization(rs)).optional()
+        return repository.findById(id).map(OrganizationDirectory::dto)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Организация не найдена"));
     }
 
+    /** Ищет подключённые организации по фрагменту названия или точному ИНН либо ОГРН. */
     public List<TransporterOrganizationDto> list(String search, int offset, int limit) {
-        return db.sql("""
-                SELECT id, name, inn, ogrn, legal_address, created_at FROM transporter_organization
-                WHERE (:search = '' OR strpos(lower(name), lower(:search)) > 0 OR inn = :search OR ogrn = :search)
-                ORDER BY name, id LIMIT :limit OFFSET :offset
-                """).param("search", search == null ? "" : search.strip()).param("offset", offset).param("limit", limit)
-                .query((rs, row) -> organization(rs)).list();
+        return repository.searchOrganizations(search == null ? "" : search.strip(), new OffsetPage(offset, limit)).stream()
+                .map(OrganizationDirectory::dto).toList();
     }
 
-    private static TransporterOrganizationDto organization(ResultSet rs) throws SQLException {
-        return new TransporterOrganizationDto(rs.getObject("id", UUID.class), rs.getString("name"),
-                rs.getString("inn"), rs.getString("ogrn"), rs.getString("legal_address"),
-                rs.getObject("created_at", LocalDateTime.class).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+    private static TransporterOrganizationDto dto(TransporterOrganization organization) {
+        return new TransporterOrganizationDto(organization.getId(), organization.getName(), organization.getInn(),
+                organization.getOgrn(), organization.getLegalAddress(),
+                organization.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
     }
 }

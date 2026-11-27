@@ -1,5 +1,6 @@
 package com.github.evseevda.domainlogicmodule.registration.request.domain;
 
+/** Этапы рассмотрения заявления перевозчика и их коды. */
 public enum TransporterRequestStatus {
     DRAFT(0),
     SUBMITTED(1),
@@ -16,10 +17,12 @@ public enum TransporterRequestStatus {
         this.id = id;
     }
 
+    /** Возвращает постоянный числовой код значения для записи в базу. */
     public int getId() {
         return id;
     }
 
+    /** Восстанавливает значение по числовому коду. Неизвестный код вызывает исключение. */
     public static TransporterRequestStatus fromId(int id) {
         for (TransporterRequestStatus type : values()) {
             if (type.id == id) {

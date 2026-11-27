@@ -10,3 +10,7 @@ spring:
   cloud:
     discovery:
       enabled: false
+
+camunda:
+  client:
+    enabled: false

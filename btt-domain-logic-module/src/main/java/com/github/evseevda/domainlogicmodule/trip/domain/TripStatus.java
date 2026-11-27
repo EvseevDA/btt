@@ -1,5 +1,6 @@
 package com.github.evseevda.domainlogicmodule.trip.domain;
 
+/** Состояния выполнения рейса и их коды. */
 public enum TripStatus {
     SCHEDULED(1),
     COMPLETED(2),
@@ -11,10 +12,12 @@ public enum TripStatus {
         this.id = id;
     }
 
+    /** Возвращает постоянный числовой код значения для записи в базу. */
     public int getId() {
         return id;
     }
 
+    /** Восстанавливает значение по числовому коду. Неизвестный код вызывает исключение. */
     public static TripStatus fromId(int id) {
         for (TripStatus type : values()) {
             if (type.id == id) {

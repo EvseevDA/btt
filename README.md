@@ -10,7 +10,7 @@
 
 ## Модель и контракты
 
-- [ER-диаграмма](btt-domain-logic-module/er/er.svg) показывает исходную модель. Актуальную схему определяют [миграции Flyway](btt-domain-logic-module/src/main/resources/db/migration). При запуске Hibernate сверяет её с [JPA-моделью](btt-domain-logic-module/src/main/java/com/github/evseevda/domainlogicmodule).
+- [ER-диаграмма](btt-domain-logic-module/er/er.svg) показывает исходную модель. Актуальную схему определяют [миграции Flyway](btt-domain-logic-module/src/main/resources/db/migration). Сервисы вызывают репозитории Spring Data JPA и JPQL. В репозиториях очереди и бронирования JPA/Hibernate управляет блокировками строк. При запуске Hibernate сверяет схему с [JPA-моделью](btt-domain-logic-module/src/main/java/com/github/evseevda/domainlogicmodule).
 - [OpenAPI](btt-api/btt-api-domain-logic/src/main/resources/openapi/api.yaml) задаёт операции под `/api/v1`. Maven генерирует интерфейсы Spring и DTO в модуле `btt-api-domain-logic`. Для операций из следующих этапов пока используются ответы HTTP 501.
 
 ## Подключение организаций
@@ -30,7 +30,7 @@
 
 В каждой схеме бэкенд запускает процесс по BPMN ID с переменной `requestId`. Решение из формы передаётся сообщением с тем же ключом корреляции. Для маршрутизации используется булево поле `approved`. Обработчик сохраняет решение и проверяющего, а при отказе — причину.
 
-Для подключения Camunda 8.8 задайте `BTT_ZEEBE_URL` (например, `http://127.0.0.1:8088`) и `BTT_ZEEBE_TOKEN`, если кластер требует Bearer-токен. Приложение разворачивает схемы и отправляет сохранённые команды через REST. HTTP 202 означает, что решение сохранено для обработки процессом. Модель допускает повторное выполнение обработчика после сбоя доставки.
+Для подключения Camunda 8.8 установите `BTT_ZEEBE_ENABLED=true`. Приложение подключается по gRPC к `BTT_ZEEBE_GRPC_ADDRESS` (по умолчанию `http://127.0.0.1:26500`). BPMN разворачиваются через `@Deployment`, задания выполняют воркеры `@JobWorker`, а журнал команд отправляется через Camunda Java Client. Для кластера с OIDC задайте `BTT_ZEEBE_AUTH_METHOD=oidc` и настройки `camunda.client.auth` из [документации Camunda](https://docs.camunda.io/docs/8.8/apis-tools/camunda-spring-boot-starter/configuration/). HTTP 202 означает, что решение сохранено для обработки процессом. Модель допускает повторное выполнение обработчика после сбоя доставки.
 
 Первая учётная запись администратора создаётся при запуске с `BTT_ADMIN_USERNAME`, `BTT_ADMIN_EMAIL` и `BTT_ADMIN_PASSWORD`, пока роль `PORTAL_ADMIN` никому не назначена. После входа через `POST /api/v1/auth/token` передавайте токен в заголовке `Authorization: Bearer …`.
 
@@ -93,6 +93,28 @@ curl -i http://127.0.0.1:8080/api/v1/trips
 ```
 
 Профиль `mock-api` запускается без PostgreSQL, отключает обнаружение сервисов и открывает маршруты `/api/v1/**` для локальных запросов без аутентификации.
+
+### Модульные и интеграционные тесты
+
+Из корня `btt` выполните `mvn test`. Модульные тесты проверяют разрешения, преобразование числовых кодов enum и соответствие BPMN Java-константам.
+
+Чтобы включить интеграционные тесты, задайте `BTT_TEST_DB_URL`, `BTT_TEST_DB_USER` и `BTT_TEST_DB_PASSWORD` для отдельной тестовой PostgreSQL. Тесты запускают Spring Boot на случайном порту, применяют миграции и создают тестовые данные. Для проверки переходов задания подаются напрямую Java-обработчикам с переменными из журнала команд. Интеграционные сценарии охватывают повторную подачу после отказа, границы полномочий сотрудников и представителей, четыре процесса перевозчика, отзыв на каждом этапе ожидания, историю лицензий, поиск рейсов и конкурентное бронирование. Сквозной сценарий ниже предназначен для проверки с работающим Zeebe.
+
+```sh
+BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_integration \
+BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local mvn test
+```
+
+### Интеграционный тест с Zeebe
+
+Запустите отдельные тестовые PostgreSQL и Zeebe 8.8 с доступным gRPC без аутентификации. Тест поднимает приложение с включёнными воркерами, деплоит BPMN через Spring Boot Starter и проверяет одобрение и отказ в регистрации организации через HTTP API.
+
+```sh
+BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_zeebe_integration \
+BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local \
+BTT_ZEEBE_TEST_GRPC_ADDRESS=http://127.0.0.1:26500 \
+mvn -pl btt-domain-logic-module -am -Dtest=ZeebeWorkflowIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
 
 ### Сквозная проверка
 

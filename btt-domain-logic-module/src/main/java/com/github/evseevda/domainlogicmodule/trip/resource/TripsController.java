@@ -15,15 +15,18 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/** Предоставляет REST-доступ к расписанию и местам рейсов. */
 @RestController
 public class TripsController implements TripsApi {
     private final ObjectProvider<TripSearch> services;
 
+    /** Создаёт контроллер и связывает его с прикладным сервисом. */
     public TripsController(ObjectProvider<TripSearch> services) {
         this.services = services;
     }
 
 
+    /** Возвращает рейс с тарифом и числом доступных мест. */
     @Override
     public ResponseEntity<TripDto> getTrip(UUID id) {
         var service = services.getIfAvailable();
@@ -31,6 +34,7 @@ public class TripsController implements TripsApi {
                 : ResponseEntity.ok(service.get(id));
     }
 
+    /** Ищет рейсы по маршруту, перевозчику, времени отправления, тарифу и доступности. */
     @Override
     public ResponseEntity<List<TripDto>> listTrips(UUID routeId, UUID transporterId, String source, String destination,
             String carrier, UUID transportKindId, OffsetDateTime departureFrom, OffsetDateTime departureUntil,
@@ -42,6 +46,7 @@ public class TripsController implements TripsApi {
                         offset, limit));
     }
 
+    /** Возвращает список мест рейса с признаками доступности. */
     @Override
     public ResponseEntity<List<TripSeatDto>> listTripSeats(UUID tripId) {
         var service = services.getIfAvailable();

@@ -7,3 +7,16 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+
+camunda:
+  client:
+    enabled: ${BTT_ZEEBE_ENABLED:false}
+    grpc-address: ${BTT_ZEEBE_GRPC_ADDRESS:http://127.0.0.1:26500}
+    prefer-rest-over-grpc: false
+    request-timeout: 5s
+    auth:
+      method: ${BTT_ZEEBE_AUTH_METHOD:none}
+    worker:
+      defaults:
+        max-jobs-active: 4
+        timeout: 30s

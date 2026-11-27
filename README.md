@@ -105,6 +105,17 @@ BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_integration \
 BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local mvn test
 ```
 
+### Интеграционный тест с Zeebe
+
+Запустите отдельные тестовые PostgreSQL и Zeebe 8.8 с доступным gRPC без аутентификации. Тест поднимает приложение с включёнными воркерами, деплоит BPMN через Spring Boot Starter и проверяет одобрение и отказ в регистрации организации через HTTP API.
+
+```sh
+BTT_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5433/btt_zeebe_integration \
+BTT_TEST_DB_USER=btt BTT_TEST_DB_PASSWORD=btt_local \
+BTT_ZEEBE_TEST_GRPC_ADDRESS=http://127.0.0.1:26500 \
+mvn -pl btt-domain-logic-module -am -Dtest=ZeebeWorkflowIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
 ### Сквозная проверка
 
 Используйте отдельную тестовую БД. Проверка создаёт аккаунты, организацию, заявки, справочные записи, рейс и билеты. Запустите PostgreSQL и приложение с профилем `local`, параметрами первого администратора и адресом Camunda. Локальный кластер можно поднять по [инструкции Camunda 8.8](https://docs.camunda.io/docs/8.8/self-managed/quickstart/developer-quickstart/docker-compose/).

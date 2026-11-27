@@ -6,14 +6,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import com.github.evseevda.domainlogicmodule.workflow.repository.WorkflowDispatchRepository;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
-import java.util.UUID;
 
 /** Отправляет сохранённые команды Zeebe через Camunda Java Client. */
 @Component
@@ -24,13 +23,13 @@ public class ZeebeRuntime {
     private static final Logger LOG = LoggerFactory.getLogger(ZeebeRuntime.class);
 
     private final CamundaClient client;
-    private final JdbcClient db;
+    private final WorkflowDispatchRepository repository;
     private final TransactionTemplate transactions;
 
     /** Создаёт диспетчер с клиентом из Camunda Spring Boot Starter. */
-    public ZeebeRuntime(CamundaClient client, JdbcClient db, TransactionTemplate transactions) {
+    public ZeebeRuntime(CamundaClient client, WorkflowDispatchRepository repository, TransactionTemplate transactions) {
         this.client = client;
-        this.db = db;
+        this.repository = repository;
         this.transactions = transactions;
     }
 
@@ -44,18 +43,7 @@ public class ZeebeRuntime {
     }
 
     private boolean dispatch() {
-        var next = db.sql("""
-                SELECT w.id, w.request_id, w.process_id, w.message_name, w.variables, w.attempt_count
-                FROM workflow_command w
-                WHERE w.delivered_at IS NULL AND w.next_attempt_at <= timezone('UTC', clock_timestamp())
-                  AND NOT EXISTS (SELECT 1 FROM workflow_command earlier
-                      WHERE earlier.request_id = w.request_id AND earlier.delivered_at IS NULL
-                        AND (earlier.created_at, earlier.id) < (w.created_at, w.id))
-                ORDER BY w.created_at, w.id LIMIT 1 FOR UPDATE OF w SKIP LOCKED
-                """).query((rs, row) -> new Command(rs.getObject("id", UUID.class),
-                        rs.getObject("request_id", UUID.class), rs.getString("process_id"),
-                        rs.getString("message_name"), rs.getString("variables"),
-                        rs.getInt("attempt_count"))).optional();
+        var next = repository.lockNextCommand();
         if (next.isEmpty()) return false;
         var command = next.orElseThrow();
         try {
@@ -69,20 +57,13 @@ public class ZeebeRuntime {
             }
         } catch (ClientException ex) {
             int delay = 1 << Math.min(8, command.attempts());
-            db.sql("""
-                    UPDATE workflow_command SET attempt_count = attempt_count + 1,
-                        next_attempt_at = timezone('UTC', clock_timestamp()) + :delay * interval '1 second'
-                    WHERE id = :id
-                    """).param("delay", delay).param("id", command.id()).update();
+            repository.delayRetry(delay, command.id());
             LOG.warn("Zeebe command {} not acknowledged. Retry in {}s ({})",
                     command.id(), delay, ex.getClass().getSimpleName());
             return true;
         }
-        db.sql("UPDATE workflow_command SET delivered_at = timezone('UTC', clock_timestamp()) WHERE id = :id")
-                .param("id", command.id()).update();
+        repository.markDelivered(command.id());
         return true;
     }
 
-    private record Command(UUID id, UUID request, String process, String message, String variables, int attempts) {
-    }
 }

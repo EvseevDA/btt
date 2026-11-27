@@ -9,8 +9,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -28,7 +26,6 @@ import java.util.UUID;
 public class Decision {
     /** Идентификатор записи. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -82,5 +79,47 @@ public class Decision {
     private int revision;
 
     protected Decision() {
+    }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public Decision(
+            UUID id,
+            TransporterRequest request,
+            UserAccount decidedBy,
+            DecisionType type,
+            String comment,
+            String changeDescription
+    ) {
+        this.id = id;
+        this.request = request;
+        this.decidedBy = decidedBy;
+        this.type = type;
+        this.comment = comment;
+        this.changeDescription = changeDescription;
+        status = DecisionStatus.DRAFT;
+        revision = 1;
+    }
+
+    /** Сохраняет следующую редакцию проекта решения. */
+    public void revise(UserAccount actor, DecisionType verdict, String text, String description) {
+        decidedBy = actor;
+        type = verdict;
+        comment = text;
+        changeDescription = description;
+        status = DecisionStatus.DRAFT;
+        revision++;
+    }
+
+    /** Записывает причину возврата на доработку. */
+    public void recordReturn(String reason) {
+        returnReason = reason;
+    }
+
+    /** Фиксирует согласовавшего и дату итогового решения. */
+    public void approve(UserAccount reviewer, LocalDateTime time) {
+        approvedBy = reviewer;
+        approvedAt = time;
+        decidedAt = time;
+        status = DecisionStatus.ISSUED;
     }
 }

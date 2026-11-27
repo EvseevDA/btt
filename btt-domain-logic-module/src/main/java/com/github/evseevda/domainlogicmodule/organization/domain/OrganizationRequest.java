@@ -82,4 +82,44 @@ public class OrganizationRequest {
 
     protected OrganizationRequest() {
     }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public OrganizationRequest(
+            UUID id,
+            UUID applicantId,
+            UUID organizationId,
+            OrganizationRequestType type,
+            String organizationName,
+            String inn,
+            String ogrn,
+            String legalAddress,
+            String authorityEvidence,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.applicantId = applicantId;
+        this.organizationId = organizationId;
+        this.type = type;
+        this.organizationName = organizationName;
+        this.inn = inn;
+        this.ogrn = ogrn;
+        this.legalAddress = legalAddress;
+        this.authorityEvidence = authorityEvidence;
+        this.createdAt = createdAt;
+        status = OrganizationRequestStatus.PENDING;
+    }
+
+    /** Сохраняет принятое проверяющим решение. */
+    public void recordDecision(UUID reviewer, String comment, boolean approval) {
+        decidedById = reviewer;
+        decisionComment = comment;
+        pendingApproval = approval;
+    }
+
+    /** Фиксирует результат исполнения процесса. */
+    public void complete(OrganizationRequestStatus state, UUID organization, LocalDateTime time) {
+        status = state;
+        organizationId = organization;
+        decidedAt = time;
+    }
 }

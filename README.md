@@ -10,7 +10,7 @@
 
 ## Модель и контракты
 
-- [ER-диаграмма](btt-domain-logic-module/er/er.svg) показывает исходную модель. Актуальную схему определяют [миграции Flyway](btt-domain-logic-module/src/main/resources/db/migration). При запуске Hibernate сверяет её с [JPA-моделью](btt-domain-logic-module/src/main/java/com/github/evseevda/domainlogicmodule).
+- [ER-диаграмма](btt-domain-logic-module/er/er.svg) показывает исходную модель. Актуальную схему определяют [миграции Flyway](btt-domain-logic-module/src/main/resources/db/migration). Сервисы вызывают репозитории Spring Data JPA и JPQL. В репозиториях очереди и бронирования JPA/Hibernate управляет блокировками строк. При запуске Hibernate сверяет схему с [JPA-моделью](btt-domain-logic-module/src/main/java/com/github/evseevda/domainlogicmodule).
 - [OpenAPI](btt-api/btt-api-domain-logic/src/main/resources/openapi/api.yaml) задаёт операции под `/api/v1`. Maven генерирует интерфейсы Spring и DTO в модуле `btt-api-domain-logic`. Для операций из следующих этапов пока используются ответы HTTP 501.
 
 ## Подключение организаций

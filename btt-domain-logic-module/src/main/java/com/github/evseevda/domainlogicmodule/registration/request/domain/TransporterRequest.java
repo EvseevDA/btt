@@ -11,8 +11,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -29,7 +27,6 @@ import java.util.UUID;
 public class TransporterRequest {
     /** Идентификатор записи. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -89,5 +86,55 @@ public class TransporterRequest {
     private UUID pendingCommandId;
 
     protected TransporterRequest() {
+    }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public TransporterRequest(
+            UUID id,
+            Transporter transporter,
+            TransporterOrganization organization,
+            TransporterVersion sourceTransporterVersion,
+            String proposedData,
+            UserAccount applicantContact,
+            TransporterRequestType type,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.transporter = transporter;
+        this.organization = organization;
+        this.sourceTransporterVersion = sourceTransporterVersion;
+        this.proposedData = proposedData;
+        this.applicantContact = applicantContact;
+        this.type = type;
+        this.createdAt = createdAt;
+        status = TransporterRequestStatus.DRAFT;
+    }
+
+    /** Фиксирует подачу заявления. */
+    public void submit(LocalDateTime time) {
+        status = TransporterRequestStatus.SUBMITTED;
+        submittedAt = time;
+    }
+
+    /** Назначает исполнителя и переводит заявление на рассмотрение. */
+    public void assign(UserAccount user) {
+        executor = user;
+        status = TransporterRequestStatus.UNDER_REVIEW;
+    }
+
+    /** Сохраняет результат перехода процесса. */
+    public void changeStatus(TransporterRequestStatus state) {
+        status = state;
+    }
+
+    /** Связывает заявление с созданным перевозчиком. */
+    public void attach(Transporter carrier) {
+        transporter = carrier;
+    }
+
+    /** Сохраняет ожидающую команду процесса. */
+    public void recordPending(String action, UUID command) {
+        pendingAction = action;
+        pendingCommandId = command;
     }
 }

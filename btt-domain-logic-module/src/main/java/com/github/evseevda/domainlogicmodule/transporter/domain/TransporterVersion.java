@@ -49,4 +49,21 @@ public class TransporterVersion {
 
     protected TransporterVersion() {
     }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public TransporterVersion(
+            UUID id,
+            Transporter transporter,
+            int versionNumber,
+            TransportKind transportKind,
+            TransporterStatus status,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.transporter = transporter;
+        this.versionNumber = versionNumber;
+        this.transportKind = transportKind;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
 }

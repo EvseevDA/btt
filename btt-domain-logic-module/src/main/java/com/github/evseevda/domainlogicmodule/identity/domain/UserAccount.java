@@ -2,8 +2,6 @@ package com.github.evseevda.domainlogicmodule.identity.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -23,7 +21,6 @@ import java.util.UUID;
 public class UserAccount {
     /** Идентификатор записи. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -57,5 +54,27 @@ public class UserAccount {
     private String passwordHash;
 
     protected UserAccount() {
+    }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public UserAccount(
+            UUID id,
+            String username,
+            String email,
+            String fullName,
+            String passwordHash,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.fullName = fullName;
+        this.passwordHash = passwordHash;
+        this.createdAt = createdAt;
+    }
+
+    /** Назначает роль аккаунту. */
+    public void assignRole(Role role) {
+        roles.add(role);
     }
 }

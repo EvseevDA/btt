@@ -7,8 +7,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -25,7 +23,6 @@ import java.util.UUID;
 public class RegistrationCertificate {
     /** Идентификатор записи. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -48,5 +45,25 @@ public class RegistrationCertificate {
     private LocalDateTime createdAt;
 
     protected RegistrationCertificate() {
+    }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public RegistrationCertificate(
+            UUID id,
+            Transporter transporter,
+            String certificateNumber,
+            RegistrationCertificateStatus status,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.transporter = transporter;
+        this.certificateNumber = certificateNumber;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
+
+    /** Аннулирует удостоверение. */
+    public void revoke() {
+        status = RegistrationCertificateStatus.REVOKED;
     }
 }

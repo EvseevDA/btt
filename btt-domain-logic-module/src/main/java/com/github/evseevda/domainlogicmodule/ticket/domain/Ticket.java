@@ -8,8 +8,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -27,7 +25,6 @@ import java.util.UUID;
 public class Ticket {
     /** Идентификатор записи. */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -63,5 +60,31 @@ public class Ticket {
     private LocalDateTime bookedAt;
 
     protected Ticket() {
+    }
+
+    /** Создаёт новую запись с уже выделенным идентификатором. */
+    public Ticket(
+            UUID id,
+            Trip trip,
+            UserAccount user,
+            String ticketNumber,
+            String seatCode,
+            BigDecimal price,
+            TicketStatus status,
+            LocalDateTime bookedAt
+    ) {
+        this.id = id;
+        this.trip = trip;
+        this.user = user;
+        this.ticketNumber = ticketNumber;
+        this.seatCode = seatCode;
+        this.price = price;
+        this.status = status;
+        this.bookedAt = bookedAt;
+    }
+
+    /** Отменяет активную бронь. */
+    public void cancel() {
+        status = TicketStatus.CANCELLED;
     }
 }

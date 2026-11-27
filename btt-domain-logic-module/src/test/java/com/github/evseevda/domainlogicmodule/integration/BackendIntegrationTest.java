@@ -2,6 +2,9 @@ package com.github.evseevda.domainlogicmodule.integration;
 
 import com.github.evseevda.domainlogicmodule.organization.service.OrganizationRequests;
 import com.github.evseevda.domainlogicmodule.registration.service.RegistrationRequests;
+import com.github.evseevda.domainlogicmodule.workflow.domain.WorkflowCommand;
+import com.github.evseevda.domainlogicmodule.workflow.repository.WorkflowDispatchRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,6 +15,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -48,6 +52,10 @@ class BackendIntegrationTest {
     private OrganizationRequests organizations;
     @Autowired
     private RegistrationRequests registrations;
+    @Autowired
+    private WorkflowDispatchRepository dispatch;
+    @Autowired
+    private EntityManager entityManager;
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
@@ -56,6 +64,25 @@ class BackendIntegrationTest {
         registry.add("spring.datasource.url", () -> System.getenv("BTT_TEST_DB_URL"));
         registry.add("spring.datasource.username", () -> System.getenv().getOrDefault("BTT_TEST_DB_USER", "btt"));
         registry.add("spring.datasource.password", () -> System.getenv().getOrDefault("BTT_TEST_DB_PASSWORD", "btt_local"));
+    }
+
+    @Test
+    @Transactional
+    void delayedWorkflowCommandBlocksOnlyLaterCommandsForTheSameRequest() {
+        var request = UUID.randomUUID();
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var independent = UUID.randomUUID();
+        var created = LocalDateTime.of(2000, 1, 1, 0, 0);
+        entityManager.persist(new WorkflowCommand(first, request, "blm_test", null, "{}", created));
+        entityManager.persist(new WorkflowCommand(second, request, null, "next", "{}", created.plusSeconds(1)));
+        entityManager.persist(new WorkflowCommand(independent, UUID.randomUUID(), "blm_test", null, "{}", created.plusSeconds(2)));
+
+        assertEquals(first, dispatch.lockNextCommand().orElseThrow().id());
+        dispatch.delayRetry(60, first);
+        assertEquals(independent, dispatch.lockNextCommand().orElseThrow().id());
+        dispatch.markDelivered(independent);
+        assertTrue(dispatch.lockNextCommand().stream().noneMatch(command -> second.equals(command.id())));
     }
 
     @Test

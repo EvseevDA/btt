@@ -2,7 +2,8 @@ package com.github.evseevda.domainlogicmodule.organization.domain;
 
 /** Виды заявок организаций и их коды. */
 public enum OrganizationRequestType {
-    REGISTRATION(1), MEMBERSHIP(2);
+    REGISTRATION(1),
+    MEMBERSHIP(2);
 
     private final int id;
 

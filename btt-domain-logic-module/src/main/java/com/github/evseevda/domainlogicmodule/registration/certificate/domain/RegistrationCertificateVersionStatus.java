@@ -24,6 +24,7 @@ public enum RegistrationCertificateVersionStatus {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Unknown RegistrationCertificateVersionStatus ID: " + id);
+        throw new IllegalArgumentException(
+                "Unknown RegistrationCertificateVersionStatus ID: " + id);
     }
 }

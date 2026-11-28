@@ -2,7 +2,9 @@ package com.github.evseevda.domainlogicmodule.organization.domain;
 
 /** Состояния проверки заявки организации и их коды. */
 public enum OrganizationRequestStatus {
-    PENDING(1), APPROVED(2), REJECTED(3);
+    PENDING(1),
+    APPROVED(2),
+    REJECTED(3);
 
     private final int id;
 

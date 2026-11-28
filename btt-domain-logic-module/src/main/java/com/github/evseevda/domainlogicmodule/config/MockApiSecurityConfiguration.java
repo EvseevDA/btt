@@ -12,10 +12,12 @@ class MockApiSecurityConfiguration {
 
     @Bean
     SecurityFilterChain mockApiSecurityFilterChain(HttpSecurity http) {
-        return http
-                .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/api/v1/**").permitAll()
-                        .anyRequest().denyAll())
+        return http.authorizeHttpRequests(
+                        requests ->
+                                requests.requestMatchers("/api/v1/**")
+                                        .permitAll()
+                                        .anyRequest()
+                                        .denyAll())
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**"))
                 .build();
     }

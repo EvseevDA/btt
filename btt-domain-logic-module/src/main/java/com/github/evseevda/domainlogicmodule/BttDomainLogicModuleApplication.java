@@ -11,5 +11,4 @@ public class BttDomainLogicModuleApplication {
     public static void main(String[] args) {
         SpringApplication.run(BttDomainLogicModuleApplication.class, args);
     }
-
 }

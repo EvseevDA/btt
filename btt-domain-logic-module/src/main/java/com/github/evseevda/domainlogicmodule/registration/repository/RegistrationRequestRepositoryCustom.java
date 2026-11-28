@@ -1,33 +1,41 @@
 package com.github.evseevda.domainlogicmodule.registration.repository;
 
 import com.github.evseevda.domainlogic.model.DecisionDto;
-import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.Carrier;
-import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.Request;
+import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.TransporterRegistrationProjection;
+import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.RegistrationRequestProjection;
 import java.util.Optional;
 import java.util.UUID;
 
 /** Дополнительные операции репозитория. */
 interface RegistrationRequestRepositoryCustom {
     /** Ищет организацию и текущее состояние перевозчика. */
-    Optional<Carrier> findCarrier(UUID transporter);
+    Optional<TransporterRegistrationProjection> findTransporterById(UUID transporter);
 
     /** Сохраняет черновик с исходной версией перевозчика и предложенным снимком. */
-    void insertRequest(UUID id, UUID transporter, UUID organization, UUID source, String data, UUID actor, int type);
+    void insertRequest(
+            UUID id,
+            UUID transporter,
+            UUID organization,
+            UUID source,
+            String data,
+            UUID actor,
+            int type);
 
     /** Блокирует перевозчика на время проверки другой открытой заявки. */
-    void lockCarrier(UUID transporter);
+    void lockTransporterById(UUID transporter);
 
     /** Проверяет, рассматривается ли уже заявление по перевозчику. */
-    boolean hasOpenRequest(UUID transporter);
+    boolean existsOpenRequestByTransporterId(UUID transporter);
 
     /** Фиксирует подачу заявления. */
     void markSubmitted(UUID id);
 
     /** Создаёт решение или сохраняет новую редакцию существующего проекта. */
-    void saveDraftDecision(UUID decision, UUID id, UUID actor, int type, String comment, String description);
+    void saveDraftDecision(
+            UUID decision, UUID id, UUID actor, int type, String comment, String description);
 
     /** Читает результат уже обработанной команды, включая результат без решения. */
-    Optional<Integer> processedDecisionType(UUID command, UUID id);
+    Optional<Integer> findProcessedDecisionTypeByCommandIdAndRequestId(UUID command, UUID id);
 
     /** Назначает исполнителя и переводит заявку на рассмотрение. */
     void assignExecutor(UUID executor, UUID id);
@@ -42,10 +50,10 @@ interface RegistrationRequestRepositoryCustom {
     void clearPendingAction(UUID id);
 
     /** Читает описание изменений из решения. */
-    Optional<String> findChangeDescription(UUID id);
+    Optional<String> findChangeDescriptionByRequestId(UUID id);
 
     /** Связывает заявление с зарегистрированным перевозчиком. */
-    void attachCarrier(UUID transporter, UUID id);
+    void attachTransporter(UUID transporter, UUID id);
 
     /** Сохраняет согласовавшего и время итогового решения. */
     void markDecisionApproved(UUID reviewer, UUID id);
@@ -57,10 +65,10 @@ interface RegistrationRequestRepositoryCustom {
     void updateStatus(int status, UUID id);
 
     /** Читает текущую редакцию решения. */
-    Optional<DecisionDto> findDecision(UUID id);
+    Optional<DecisionDto> findDecisionByRequestId(UUID id);
 
     /** Читает заявление с блокировкой на запись для переходов процесса. */
-    Optional<Request> findRequest(UUID id, boolean lock);
+    Optional<RegistrationRequestProjection> findRegistrationRequestById(UUID id, boolean lock);
 
     /** Проверяет право пользователя представлять организацию. */
     boolean mayRepresent(UUID org, UUID user);

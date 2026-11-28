@@ -1,17 +1,17 @@
 package com.github.evseevda.domainlogicmodule.workflow.repository;
 
-import com.github.evseevda.domainlogicmodule.workflow.repository.WorkflowDispatchRepository.Command;
+import com.github.evseevda.domainlogicmodule.workflow.repository.WorkflowDispatchRepository.PendingWorkflowCommand;
 import java.util.Optional;
 import java.util.UUID;
 
 /** Дополнительные операции репозитория. */
 interface WorkflowDispatchRepositoryCustom {
     /** Блокирует первую готовую команду и пропускает строки, заблокированные другим диспетчером. */
-    Optional<Command> lockNextCommand();
+    Optional<PendingWorkflowCommand> findNextCommandWithLock();
 
     /** Откладывает повторную отправку команды. */
-    void delayRetry(int delay, UUID id);
+    void scheduleCommandRetry(int delay, UUID id);
 
     /** Отмечает успешно доставленную команду. */
-    void markDelivered(UUID id);
+    void markCommandDelivered(UUID id);
 }

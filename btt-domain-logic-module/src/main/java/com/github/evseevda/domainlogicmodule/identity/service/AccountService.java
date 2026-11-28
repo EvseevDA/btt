@@ -3,21 +3,20 @@ package com.github.evseevda.domainlogicmodule.identity.service;
 import com.github.evseevda.domainlogic.model.RegisterUser;
 import com.github.evseevda.domainlogic.model.RoleDto;
 import com.github.evseevda.domainlogic.model.UserAccountDto;
-import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
-import org.springframework.context.annotation.Profile;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import com.github.evseevda.domainlogicmodule.identity.repository.AccountRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
+import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.context.annotation.Profile;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Создаёт аккаунты, назначает роли и проверяет доступ к профилям. */
 @Service
@@ -34,52 +33,70 @@ public class AccountService {
 
     /** Создаёт публичный аккаунт или, при наличии разрешения, аккаунт с ролями сотрудника. */
     @Transactional
-    public UserAccountDto register(RegisterUser input) {
+    public UserAccountDto registerUser(RegisterUser input) {
         var roles = input.getRoleNames();
         if (roles != null && !roles.isEmpty()) {
-            CurrentAccount.id();
-            CurrentAccount.require("account.staff.create");
+            CurrentAccount.getUserId();
+            CurrentAccount.requirePermission("account.staff.create");
         }
-        UUID id = create(input.getUsername(), input.getEmail(), input.getFullName(), input.getPassword());
+        UUID id =
+                createAccount(
+                        input.getUsername(),
+                        input.getEmail(),
+                        input.getFullName(),
+                        input.getPassword());
         if (roles != null) {
             roles.stream().distinct().forEach(role -> assignRole(id, role));
         }
-        return find(id);
+        return getAccountById(id);
     }
 
     /** Создаёт первого администратора, если эта роль ещё никому не назначена. */
     @Transactional
-    public void bootstrap(String username, String email, String password) {
-        repository.lockPortalAdmin();
-        boolean exists = repository.hasPortalAdmin();
+    public void createInitialAdministrator(String username, String email, String password) {
+        repository.findPortalAdminRoleIdWithLock();
+        boolean exists = repository.existsPortalAdministrator();
         if (!exists) {
-            assignRole(create(username, email, "Администратор портала", password), "PORTAL_ADMIN");
+            assignRole(
+                    createAccount(username, email, "Администратор портала", password),
+                    "PORTAL_ADMIN");
         }
     }
 
     /** Возвращает собственный профиль или профиль, доступный администратору. */
-    public UserAccountDto profile(UUID id) {
-        checkAccess(id);
-        return find(id);
+    public UserAccountDto getUserById(UUID userId) {
+        requireProfileAccess(userId);
+        return getAccountById(userId);
     }
 
     /** Читает роли аккаунта с проверкой доступа и разбивкой на страницы. */
-    public List<RoleDto> roles(UUID id, int offset, int limit) {
-        checkAccess(id);
-        find(id);
-        return repository.roles(id, limit, offset);
+    public List<RoleDto> findAllRolesByUserId(UUID userId, int offset, int limit) {
+        requireProfileAccess(userId);
+        getAccountById(userId);
+        return repository.findAllRolesByUserId(userId, limit, offset);
     }
 
-    private UUID create(String username, String email, String fullName, String password) {
-        if (username.isBlank() || email.isBlank() || fullName.isBlank() || password.length() < 12
+    private UUID createAccount(String username, String email, String fullName, String password) {
+        if (username.isBlank()
+                || email.isBlank()
+                || fullName.isBlank()
+                || password.length() < 12
                 || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некорректные данные аккаунта");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Некорректные данные аккаунта");
         }
         UUID id = UUID.randomUUID();
         try {
-            repository.insertAccount(id, username.strip().toLowerCase(Locale.ROOT), email.strip().toLowerCase(Locale.ROOT), fullName.strip(), passwords.encode(password), LocalDateTime.now(Clock.systemUTC()));
+            repository.insertAccount(
+                    id,
+                    username.strip().toLowerCase(Locale.ROOT),
+                    email.strip().toLowerCase(Locale.ROOT),
+                    fullName.strip(),
+                    passwords.encode(password),
+                    LocalDateTime.now(Clock.systemUTC()));
         } catch (DataIntegrityViolationException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Логин или почта уже используется", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Логин или почта уже используется", ex);
         }
         return id;
     }
@@ -91,14 +108,15 @@ public class AccountService {
         }
     }
 
-    private UserAccountDto find(UUID id) {
-        return repository.findProfile(id)
+    private UserAccountDto getAccountById(UUID id) {
+        return repository
+                .findProfileById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    private void checkAccess(UUID id) {
-        if (!CurrentAccount.id().equals(id)) {
-            CurrentAccount.require("account.staff.create");
+    private void requireProfileAccess(UUID id) {
+        if (!CurrentAccount.getUserId().equals(id)) {
+            CurrentAccount.requirePermission("account.staff.create");
         }
     }
 }

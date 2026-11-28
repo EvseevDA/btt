@@ -10,20 +10,26 @@ import java.util.UUID;
 /** Дополнительные операции репозитория. */
 interface AccountRepositoryCustom {
     /** Блокирует роль администратора во время создания первого аккаунта. */
-    UUID lockPortalAdmin();
+    UUID findPortalAdminRoleIdWithLock();
 
     /** Проверяет, назначена ли кому-либо роль администратора. */
-    boolean hasPortalAdmin();
+    boolean existsPortalAdministrator();
 
     /** Читает страницу ролей аккаунта. */
-    List<RoleDto> roles(UUID id, int limit, int offset);
+    List<RoleDto> findAllRolesByUserId(UUID id, int limit, int offset);
 
     /** Сохраняет новый аккаунт и хеш пароля. */
-    void insertAccount(UUID id, String username, String email, String name, String hash, LocalDateTime created);
+    void insertAccount(
+            UUID id,
+            String username,
+            String email,
+            String name,
+            String hash,
+            LocalDateTime created);
 
     /** Назначает роль по имени, если такая роль существует. */
     int assignRole(UUID id, String role);
 
     /** Читает профиль аккаунта без хеша пароля. */
-    Optional<UserAccountDto> findProfile(UUID id);
+    Optional<UserAccountDto> findProfileById(UUID id);
 }

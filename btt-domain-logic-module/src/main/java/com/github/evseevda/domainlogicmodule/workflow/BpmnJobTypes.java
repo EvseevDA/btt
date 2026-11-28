@@ -3,16 +3,20 @@ package com.github.evseevda.domainlogicmodule.workflow;
 /** Имена типов заданий из технических BPMN. */
 public final class BpmnJobTypes {
     /** Тип задания Zeebe. Подключает организацию и назначает первого представителя. */
-    public static final String ORGANIZATION_REGISTRATION_APPROVE = "blm_organization_registration_approve";
+    public static final String ORGANIZATION_REGISTRATION_APPROVE =
+            "blm_organization_registration_approve";
 
     /** Тип задания Zeebe. Сохраняет отказ в подключении организации. */
-    public static final String ORGANIZATION_REGISTRATION_REJECT = "blm_organization_registration_reject";
+    public static final String ORGANIZATION_REGISTRATION_REJECT =
+            "blm_organization_registration_reject";
 
     /** Тип задания Zeebe. Подтверждает присоединение сотрудника к организации. */
-    public static final String ORGANIZATION_MEMBERSHIP_APPROVE = "blm_organization_membership_approve";
+    public static final String ORGANIZATION_MEMBERSHIP_APPROVE =
+            "blm_organization_membership_approve";
 
     /** Тип задания Zeebe. Сохраняет отказ в присоединении сотрудника. */
-    public static final String ORGANIZATION_MEMBERSHIP_REJECT = "blm_organization_membership_reject";
+    public static final String ORGANIZATION_MEMBERSHIP_REJECT =
+            "blm_organization_membership_reject";
 
     /** Тип задания Zeebe. Сохраняет назначение исполнителя. */
     public static final String REGISTRATION_ASSIGNMENT = "blm_save_registration_assignment";
@@ -41,6 +45,5 @@ public final class BpmnJobTypes {
     /** Тип задания Zeebe. Фиксирует отмену регистрации по инициативе администрации. */
     public static final String ADMIN_CANCELLATION = "blm_apply_admin_cancellation";
 
-    private BpmnJobTypes() {
-    }
+    private BpmnJobTypes() {}
 }

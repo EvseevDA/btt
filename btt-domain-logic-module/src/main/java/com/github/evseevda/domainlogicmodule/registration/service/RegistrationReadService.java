@@ -7,19 +7,18 @@ import com.github.evseevda.domainlogic.model.TransporterRequestDto;
 import com.github.evseevda.domainlogic.model.TransporterSnapshotInput;
 import com.github.evseevda.domainlogic.model.TransporterVersionDto;
 import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
+import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationHistoryRepository;
+import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.RegistrationRequestProjection;
 import com.github.evseevda.domainlogicmodule.registration.request.domain.TransporterRequestType;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
-import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationRequestRepository.Request;
-import com.github.evseevda.domainlogicmodule.registration.repository.RegistrationHistoryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
 
 /** Читает заявления и снимки регистрации с учётом прав вызывающего пользователя. */
 @Service
@@ -27,79 +26,118 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class RegistrationReadService {
     private final RegistrationHistoryRepository repository;
-    private final RegistrationRequests requests;
+    private final RegistrationRequestService requests;
     private final ObjectMapper json;
 
     /** Создаёт сервис чтения заявлений и исторических снимков. */
-    public RegistrationReadService(RegistrationHistoryRepository repository, RegistrationRequests requests, ObjectMapper json) {
+    public RegistrationReadService(
+            RegistrationHistoryRepository repository,
+            RegistrationRequestService requests,
+            ObjectMapper json) {
         this.repository = repository;
         this.requests = requests;
         this.json = json;
     }
 
     /** Возвращает карточку заявления с предложенным снимком после проверки видимости. */
-    public TransporterRequestDto request(UUID id) {
-        var request = requests.find(id, false);
+    public TransporterRequestDto getRegistrationRequestById(UUID requestId) {
+        var request = requests.getRegistrationRequestById(requestId, false);
         var dto = request.dto();
         int type = dto.getType().getValue();
-        var actor = CurrentAccount.id();
-        if (!actor.equals(dto.getApplicantContactId()) && !actor.equals(dto.getExecutorId())
-                && !mayReview(type) && !(type != 4 && mayRepresent(dto.getOrganizationId(), actor))) {
+        var actor = CurrentAccount.getUserId();
+        if (!actor.equals(dto.getApplicantContactId())
+                && !actor.equals(dto.getExecutorId())
+                && !canReviewRequestType(type)
+                && !(type != 4 && mayRepresent(dto.getOrganizationId(), actor))) {
             throw notFound();
         }
         return withProposedData(request);
     }
 
     /** Возвращает решение по заявлению, которое пользователь вправе просматривать. */
-    public DecisionDto decision(UUID requestId) {
-        request(requestId);
-        return requests.decision(requestId);
+    public DecisionDto getDecisionByRequestId(UUID requestId) {
+        getRegistrationRequestById(requestId);
+        return requests.getDecisionByRequestId(requestId);
     }
 
     /** Читает страницу доступных заявлений с фильтрами по перевозчику и состоянию. */
-    public List<TransporterRequestDto> listRequests(UUID transporter, Integer type, Integer status, int offset, int limit) {
-        var reviewerTypes = Arrays.stream(TransporterRequestType.values())
-                .mapToInt(TransporterRequestType::getId).filter(this::mayReview).boxed().toList();
-        return repository.visibleRequests(CurrentAccount.id(), reviewerTypes, transporter, type, status, limit, offset).stream().map(this::withProposedData).toList();
+    public List<TransporterRequestDto> findAllRegistrationRequests(
+            UUID transporter, Integer type, Integer status, int offset, int limit) {
+        var reviewerTypes =
+                Arrays.stream(TransporterRequestType.values())
+                        .mapToInt(TransporterRequestType::getId)
+                        .filter(this::canReviewRequestType)
+                        .boxed()
+                        .toList();
+        return repository
+                .findAllVisibleRequests(
+                        CurrentAccount.getUserId(),
+                        reviewerTypes,
+                        transporter,
+                        type,
+                        status,
+                        limit,
+                        offset)
+                .stream()
+                .map(this::withProposedData)
+                .toList();
     }
 
     /** Возвращает РУ перевозчика и идентификатор его последней версии. */
-    public RegistrationCertificateDto certificate(UUID transporter) {
-        requireCarrierAccess(transporter);
-        return repository.findCertificate(transporter).orElseThrow(RegistrationReadService::notFound);
+    public RegistrationCertificateDto getRegistrationCertificateByTransporterId(
+            UUID transporterId) {
+        requireCarrierAccess(transporterId);
+        return repository
+                .findCertificateByTransporterId(transporterId)
+                .orElseThrow(RegistrationReadService::notFound);
     }
 
     /** Возвращает версии РУ в порядке от новой к старой. */
-    public List<RegistrationCertificateVersionDto> certificateVersions(UUID certificate, int offset, int limit) {
-        requireCertificateAccess(certificate);
-        return repository.certificateVersions(certificate, limit, offset);
+    public List<RegistrationCertificateVersionDto> findAllCertificateVersionsByCertificateId(
+            UUID certificateId, int offset, int limit) {
+        requireCertificateAccess(certificateId);
+        return repository.findAllCertificateVersionsByCertificateId(certificateId, limit, offset);
     }
 
     /** Возвращает конкретную версию, принадлежащую указанному РУ. */
-    public RegistrationCertificateVersionDto certificateVersion(UUID certificate, UUID version) {
-        requireCertificateAccess(certificate);
-        return repository.findCertificateVersion(certificate, version).orElseThrow(RegistrationReadService::notFound);
+    public RegistrationCertificateVersionDto getCertificateVersionById(
+            UUID certificateId, UUID versionId) {
+        requireCertificateAccess(certificateId);
+        return repository
+                .findCertificateVersionByCertificateIdAndId(certificateId, versionId)
+                .orElseThrow(RegistrationReadService::notFound);
     }
 
     /** Возвращает исторический снимок перевозчика вместе с лицензиями этой версии. */
-    public TransporterVersionDto transporterVersion(UUID transporter, UUID version) {
-        requireCarrierAccess(transporter);
-        var dto = repository.findTransporterVersion(transporter, version).orElseThrow(RegistrationReadService::notFound);
-        dto.setLicenses(repository.licenses(version, transporter));
+    public TransporterVersionDto getTransporterVersionById(UUID transporterId, UUID versionId) {
+        requireCarrierAccess(transporterId);
+        var dto =
+                repository
+                        .findTransporterVersionByTransporterIdAndId(transporterId, versionId)
+                        .orElseThrow(RegistrationReadService::notFound);
+        dto.setLicenses(repository.findAllLicensesByTransporterVersionId(versionId, transporterId));
         return dto;
     }
 
     private void requireCertificateAccess(UUID certificate) {
-        var transporter = repository.findCertificateTransporter(certificate).orElseThrow(RegistrationReadService::notFound);
+        var transporter =
+                repository
+                        .findTransporterIdByCertificateId(certificate)
+                        .orElseThrow(RegistrationReadService::notFound);
         requireCarrierAccess(transporter);
     }
 
     private void requireCarrierAccess(UUID transporter) {
-        UUID organization = repository.findOrganization(transporter).orElseThrow(RegistrationReadService::notFound);
-        UUID actor = CurrentAccount.id();
+        UUID organization =
+                repository
+                        .findOrganizationIdByTransporterId(transporter)
+                        .orElseThrow(RegistrationReadService::notFound);
+        UUID actor = CurrentAccount.getUserId();
         boolean organizationMember = repository.isOrganizationMember(organization, actor);
-        if (!organizationMember && Arrays.stream(TransporterRequestType.values())
-                .mapToInt(TransporterRequestType::getId).noneMatch(this::mayReview)) {
+        if (!organizationMember
+                && Arrays.stream(TransporterRequestType.values())
+                        .mapToInt(TransporterRequestType::getId)
+                        .noneMatch(this::canReviewRequestType)) {
             throw notFound();
         }
     }
@@ -108,14 +146,18 @@ public class RegistrationReadService {
         return repository.mayRepresent(organization, actor);
     }
 
-    private boolean mayReview(int type) {
-        return CurrentAccount.hasPermission(RegistrationRequests.permission(type, "decide"))
-                || CurrentAccount.hasPermission(RegistrationRequests.permission(type, "approve"));
+    private boolean canReviewRequestType(int type) {
+        return CurrentAccount.hasPermission(
+                        RegistrationRequestService.getPermissionName(type, "decide"))
+                || CurrentAccount.hasPermission(
+                        RegistrationRequestService.getPermissionName(type, "approve"));
     }
 
-    private TransporterRequestDto withProposedData(Request request) {
+    private TransporterRequestDto withProposedData(RegistrationRequestProjection request) {
         if (request.proposedData() != null) {
-            request.dto().setProposedData(json.readValue(request.proposedData(), TransporterSnapshotInput.class));
+            request.dto()
+                    .setProposedData(
+                            json.readValue(request.proposedData(), TransporterSnapshotInput.class));
         }
         return request.dto();
     }

@@ -8,7 +8,8 @@ public record OffsetPage(long offset, int size) implements Pageable {
     /** Проверяет границы смещения и размера. */
     public OffsetPage {
         if (offset < 0 || size < 1) {
-            throw new IllegalArgumentException("Смещение должно быть неотрицательным, размер страницы — положительным");
+            throw new IllegalArgumentException(
+                    "Смещение должно быть неотрицательным, размер страницы — положительным");
         }
     }
 

@@ -2,12 +2,11 @@ package com.github.evseevda.domainlogicmodule.persistence;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
-import org.springframework.dao.DuplicateKeyException;
-
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.springframework.dao.DuplicateKeyException;
 
 /** Общие операции для репозиториев со сложными запросами JPQL. */
 public abstract class JpaQueries {
@@ -17,19 +16,19 @@ public abstract class JpaQueries {
         this.em = em;
     }
 
-    protected <T> TypedQuery<T> select(String jpql, Class<T> type) {
+    protected <T> TypedQuery<T> createTypedQuery(String jpql, Class<T> type) {
         return em.createQuery(jpql, type);
     }
 
-    protected static <T> Optional<T> one(TypedQuery<T> query) {
+    protected static <T> Optional<T> findSingleResult(TypedQuery<T> query) {
         return Optional.ofNullable(query.getSingleResultOrNull());
     }
 
-    protected <T> T ref(Class<T> type, Object id) {
+    protected <T> T getReference(Class<T> type, Object id) {
         return id == null ? null : em.getReference(type, id);
     }
 
-    protected void insert(Object entity) {
+    protected void persistAndFlush(Object entity) {
         em.persist(entity);
         try {
             em.flush();
@@ -43,7 +42,7 @@ public abstract class JpaQueries {
         }
     }
 
-    protected static LocalDateTime now() {
+    protected static LocalDateTime getCurrentUtcDateTime() {
         return LocalDateTime.now(Clock.systemUTC());
     }
 }

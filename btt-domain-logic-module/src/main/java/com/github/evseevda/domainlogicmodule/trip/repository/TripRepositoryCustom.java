@@ -11,16 +11,26 @@ import java.util.UUID;
 /** Дополнительные операции репозитория. */
 interface TripRepositoryCustom {
     /** Возвращает карточку рейса с актуальным числом свободных мест. */
-    Optional<TripDto> findTrip(UUID id);
+    Optional<TripDto> findTripById(UUID id);
 
     /** Возвращает страницу расписания с применением фильтров. */
-    List<TripDto> searchTrips(UUID route, UUID transporter, UUID kind, String source, String destination,
-                            String carrier, LocalDateTime from, LocalDateTime until, BigDecimal maxPrice,
-                            boolean bookable, int offset, int limit);
+    List<TripDto> findAllTripsMatchingFilters(
+            UUID route,
+            UUID transporter,
+            UUID kind,
+            String source,
+            String destination,
+            String carrier,
+            LocalDateTime from,
+            LocalDateTime until,
+            BigDecimal maxPrice,
+            boolean bookable,
+            int offset,
+            int limit);
 
     /** Проверяет, существует ли рейс для запроса списка мест. */
-    boolean exists(UUID id);
+    boolean existsTripById(UUID id);
 
     /** Возвращает места рейса с признаком доступности для бронирования. */
-    List<TripSeatDto> listSeats(UUID id);
+    List<TripSeatDto> findAllSeatsByTripId(UUID id);
 }

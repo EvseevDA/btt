@@ -1,17 +1,19 @@
 package com.github.evseevda.domainlogicmodule.workflow;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.camunda.client.annotation.JobWorker;
+import java.lang.reflect.Modifier;
+import java.util.HashSet;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.lang.reflect.Modifier;
-import java.util.HashSet;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class BpmnContractTest {
     private static final String BPMN = "http://www.omg.org/spec/BPMN/20100524/MODEL";
@@ -23,7 +25,8 @@ class BpmnContractTest {
         parser.setNamespaceAware(true);
         parser.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         parser.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-        var resources = new PathMatchingResourcePatternResolver().getResources("classpath:bpmn/blm_*.bpmn");
+        var resources =
+                new PathMatchingResourcePatternResolver().getResources("classpath:bpmn/blm_*.bpmn");
         assertEquals(6, resources.length);
 
         var names = new HashSet<String>();
@@ -37,7 +40,11 @@ class BpmnContractTest {
                 assertEquals(0, process.getElementsByTagNameNS(BPMN, "userTask").getLength());
                 var start = process.getElementsByTagNameNS(BPMN, "startEvent");
                 assertEquals(1, start.getLength());
-                assertEquals(0, ((Element) start.item(0)).getElementsByTagNameNS(BPMN, "messageEventDefinition").getLength());
+                assertEquals(
+                        0,
+                        ((Element) start.item(0))
+                                .getElementsByTagNameNS(BPMN, "messageEventDefinition")
+                                .getLength());
 
                 var jobs = process.getElementsByTagNameNS(ZEEBE, "taskDefinition");
                 for (int i = 0; i < jobs.getLength(); i++) {
@@ -50,7 +57,8 @@ class BpmnContractTest {
                     var message = (Element) definitions.item(i);
                     ids.add(message.getAttribute("id"));
                     names.add(message.getAttribute("name"));
-                    var key = (Element) message.getElementsByTagNameNS(ZEEBE, "subscription").item(0);
+                    var key =
+                            (Element) message.getElementsByTagNameNS(ZEEBE, "subscription").item(0);
                     assertNotNull(key);
                     assertEquals("=requestId", key.getAttribute("correlationKey"));
                 }

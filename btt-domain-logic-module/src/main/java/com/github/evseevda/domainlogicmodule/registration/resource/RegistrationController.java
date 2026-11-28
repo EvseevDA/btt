@@ -114,13 +114,14 @@ public class RegistrationController implements RegistrationApi {
     @Override
     public ResponseEntity<List<TransporterRequestDto>> listRegistrationRequests(
             UUID transporterId,
+            Integer type,
             Integer status,
             Integer offset,
             Integer limit
     ) {
         var service = read.getIfAvailable();
         return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
-                : ResponseEntity.ok(service.listRequests(transporterId, status, offset, limit));
+                : ResponseEntity.ok(service.listRequests(transporterId, type, status, offset, limit));
     }
 
     /** Подаёт черновик заявления и ставит запуск процесса в очередь. */

@@ -1,6 +1,8 @@
 package com.github.evseevda.domainlogicmodule.catalog.service;
 
+import com.github.evseevda.domainlogic.model.CreateRoute;
 import com.github.evseevda.domainlogic.model.RouteDto;
+import com.github.evseevda.domainlogicmodule.identity.security.CurrentAccount;
 import com.github.evseevda.domainlogic.model.TransportKindDto;
 import com.github.evseevda.domainlogic.model.TransporterDto;
 import com.github.evseevda.domainlogic.model.TransporterLicenseDto;
@@ -41,6 +43,19 @@ public class CatalogService {
         this.kinds = kinds;
         this.transporters = transporters;
         this.licenses = licenses;
+    }
+
+    /** Добавляет маршрут в справочник портала. */
+    @Transactional
+    public RouteDto createRoute(CreateRoute form) {
+        CurrentAccount.require("catalog.routes.create");
+        String source = form.getSource().strip();
+        String destination = form.getDest().strip();
+        if (source.isEmpty() || destination.isEmpty() || source.equalsIgnoreCase(destination)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Укажите разные пункты отправления и назначения");
+        }
+        var kind = kinds.findById(form.getTransportKindId()).orElseThrow(CatalogService::notFound);
+        return dto(routes.save(new Route(source, destination, form.getDuration(), kind)));
     }
 
     /** Возвращает маршрут по идентификатору. */

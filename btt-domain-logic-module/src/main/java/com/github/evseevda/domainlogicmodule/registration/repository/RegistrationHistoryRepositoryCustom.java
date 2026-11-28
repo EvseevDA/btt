@@ -12,7 +12,7 @@ import java.util.UUID;
 /** Дополнительные операции репозитория. */
 interface RegistrationHistoryRepositoryCustom {
     /** Читает страницу заявлений с проверкой связи с пользователем или организацией. */
-    List<Request> visibleRequests(UUID actor, List<Integer> types, UUID transporter, Integer status, int limit, int offset);
+    List<Request> visibleRequests(UUID actor, List<Integer> types, UUID transporter, Integer type, Integer status, int limit, int offset);
 
     /** Возвращает РУ и идентификатор его последней версии. */
     Optional<RegistrationCertificateDto> findCertificate(UUID transporter);

@@ -45,4 +45,12 @@ public class Route {
 
     protected Route() {
     }
+
+    /** Создаёт маршрут для указанного вида транспорта. */
+    public Route(String source, String dest, int duration, TransportKind transportKind) {
+        this.source = source;
+        this.dest = dest;
+        this.duration = duration;
+        this.transportKind = transportKind;
+    }
 }

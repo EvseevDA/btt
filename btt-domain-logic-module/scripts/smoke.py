@@ -7,6 +7,7 @@ import subprocess
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -91,8 +92,8 @@ def onboarding(admin, suffix):
 
 
 def registrations(admin, organization, rep, staff, executor):
-    kind, alternate = str(uuid.uuid4()), str(uuid.uuid4())
-    sql(f"INSERT INTO transport_kind (id, name) VALUES ('{kind}', 'Smoke {kind}'), ('{alternate}', 'Smoke {alternate}');")
+    kinds = {entry["name"]: entry["id"] for entry in expect("transport-kinds?limit=100", 200, admin)}
+    kind, alternate = kinds["Автобус"], kinds["Поезд"]
     license_data = {"licenseNumber": "Smoke license", "issuedAt": "2025-01-01",
                     "expiresAt": "2040-01-01", "issuingAuthority": "Smoke authority"}
 
@@ -168,16 +169,14 @@ def registrations(admin, organization, rep, staff, executor):
     return register(), kind
 
 
-def booking(carrier, kind, rep, staff):
-    route, trip = str(uuid.uuid4()), str(uuid.uuid4())
-    sql(f"""
-        INSERT INTO route (id, source, dest, duration, transport_kind_id)
-        VALUES ('{route}', 'Smoke Source', 'Smoke Destination', 60, '{kind}');
-        INSERT INTO trip (id, route_id, transporter_id, departure_at, arrival_at, status, base_price)
-        VALUES ('{trip}', '{route}', '{carrier}', timezone('UTC', now()) + interval '2 days',
-            timezone('UTC', now()) + interval '2 days 1 hour', 1, 99.90);
-        INSERT INTO trip_seat (trip_id, seat_code) VALUES ('{trip}', 'A1'), ('{trip}', 'A2');
-    """)
+def booking(carrier, kind, admin, rep, staff):
+    route = expect("routes", 201, admin, {"source": "Smoke Source", "dest": "Smoke Destination",
+                                        "duration": 60, "transportKindId": kind})["id"]
+    departure = datetime.now(timezone.utc) + timedelta(days=2)
+    trip = expect("trips", 201, rep, {"routeId": route, "transporterId": carrier,
+                                     "departureAt": departure.isoformat(),
+                                     "arrivalAt": (departure + timedelta(hours=1)).isoformat(),
+                                     "seatCodes": ["A1", "A2"], "basePrice": 99.90})["id"]
     assert expect(f"trips?routeId={route}&source=Smoke&maxPrice=100&bookableOnly=true", 200, rep)[0]["availableSeats"] == 2
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda actor: request("tickets", actor, {"tripId": trip, "seatCode": "A1"}),
@@ -193,11 +192,11 @@ def booking(carrier, kind, rep, staff):
 
 def main():
     versions = sql("SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank;")
-    assert versions.splitlines() == [str(version) for version in range(1, 10)], versions
+    assert versions.splitlines() == [str(version) for version in range(1, 11)], versions
     admin = login(os.environ["BTT_ADMIN_USERNAME"], os.environ["BTT_ADMIN_PASSWORD"])
     organization, rep, staff, executor = onboarding(admin, uuid.uuid4().hex[:10])
     carrier, kind = registrations(admin, organization, rep, staff, executor)
-    booking(carrier, kind, rep, staff)
+    booking(carrier, kind, admin, rep, staff)
     print("Migrations, onboarding, carrier workflows, version history and competitive booking passed.")
 
 

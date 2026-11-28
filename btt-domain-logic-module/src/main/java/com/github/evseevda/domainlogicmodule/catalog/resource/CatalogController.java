@@ -1,6 +1,7 @@
 package com.github.evseevda.domainlogicmodule.catalog.resource;
 
 import com.github.evseevda.domainlogic.api.CatalogApi;
+import com.github.evseevda.domainlogic.model.CreateRoute;
 import com.github.evseevda.domainlogic.model.RouteDto;
 import com.github.evseevda.domainlogic.model.TransportKindDto;
 import com.github.evseevda.domainlogic.model.TransporterDto;
@@ -109,5 +110,13 @@ public class CatalogController implements CatalogApi {
         var service = services.getIfAvailable();
         return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
                 : ResponseEntity.ok(service.transporters(organizationId, transportKindId, offset, limit));
+    }
+
+    /** Сохраняет запись, созданную уполномоченным пользователем. */
+    @Override
+    public ResponseEntity<RouteDto> createRoute(CreateRoute form) {
+        var service = services.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.status(HttpStatus.CREATED).body(service.createRoute(form));
     }
 }

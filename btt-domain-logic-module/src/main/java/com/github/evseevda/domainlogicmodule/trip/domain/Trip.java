@@ -60,4 +60,14 @@ public class Trip {
 
     protected Trip() {
     }
+
+    /** Планирует рейс по маршруту перевозчика. */
+    public Trip(Route route, Transporter transporter, LocalDateTime departureAt, LocalDateTime arrivalAt, BigDecimal basePrice) {
+        this.route = route;
+        this.transporter = transporter;
+        this.departureAt = departureAt;
+        this.arrivalAt = arrivalAt;
+        this.basePrice = basePrice;
+        this.status = TripStatus.SCHEDULED;
+    }
 }

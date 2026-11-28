@@ -1,0 +1,14 @@
+**
+!btt-api/
+!btt-api/**
+!btt-domain-logic-module/
+!btt-domain-logic-module/**
+!btt-frontend/
+!btt-frontend/**
+**/target
+**/node_modules
+**/dist
+**/.DS_Store
+**/.env*
+**/test-results
+**/playwright-report

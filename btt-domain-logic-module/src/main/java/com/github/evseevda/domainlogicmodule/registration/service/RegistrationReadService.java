@@ -57,10 +57,10 @@ public class RegistrationReadService {
     }
 
     /** Читает страницу доступных заявлений с фильтрами по перевозчику и состоянию. */
-    public List<TransporterRequestDto> listRequests(UUID transporter, Integer status, int offset, int limit) {
+    public List<TransporterRequestDto> listRequests(UUID transporter, Integer type, Integer status, int offset, int limit) {
         var reviewerTypes = Arrays.stream(TransporterRequestType.values())
                 .mapToInt(TransporterRequestType::getId).filter(this::mayReview).boxed().toList();
-        return repository.visibleRequests(CurrentAccount.id(), reviewerTypes, transporter, status, limit, offset).stream().map(this::withProposedData).toList();
+        return repository.visibleRequests(CurrentAccount.id(), reviewerTypes, transporter, type, status, limit, offset).stream().map(this::withProposedData).toList();
     }
 
     /** Возвращает РУ перевозчика и идентификатор его последней версии. */

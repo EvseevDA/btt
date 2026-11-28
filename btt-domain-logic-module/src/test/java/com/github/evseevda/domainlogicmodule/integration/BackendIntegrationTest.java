@@ -89,7 +89,7 @@ class BackendIntegrationTest {
 
     @Test
     void organizationAndCarrierWorkflowsEnforcePermissionsAndApplyARevisedDecisionOnlyOnce() throws Exception {
-        assertEquals(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9"), db.sql("""
+        assertEquals(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), db.sql("""
                 SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank
                 """).query(String.class).list());
 
@@ -497,6 +497,72 @@ class BackendIntegrationTest {
         assertEquals(1, matches.size());
         assertEquals(organization, id(matches.get(0), "id"));
         assertTrue(expect(200, get(path + "?search=" + inn + "&offset=1", owner.token())).isEmpty());
+    }
+
+    @Test
+    void representativePublishesTripWithSeatsAndPassengerCanFindAndBookIt() throws Exception {
+        var owner = account(false);
+        var admin = account(true);
+        var passenger = account(false);
+        UUID organization = connect(owner, admin);
+        UUID transportKind = kind();
+        UUID transporter = registerCarrier(owner, admin, organization, transportKind);
+        var registrations = expect(200, get("/registration-requests?type=1&transporterId=" + transporter, owner.token()));
+        assertEquals(1, registrations.size());
+        assertTrue(expect(200, get("/registration-requests?type=2&transporterId=" + transporter, owner.token())).isEmpty());
+        var routeForm = Map.of("source", "Test Origin " + UUID.randomUUID(), "dest", "Test Destination",
+                "duration", 60, "transportKindId", transportKind);
+        expect(403, post("/routes", owner.token(), routeForm));
+        UUID route = id(expect(201, post("/routes", admin.token(), routeForm)), "id");
+        var departure = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).plusDays(1);
+        var trip = Map.of("routeId", route, "transporterId", transporter, "departureAt", departure.toString(),
+                "arrivalAt", departure.plusHours(1).toString(), "basePrice", new BigDecimal("40.25"),
+                "seatCodes", List.of("A1", "A2"));
+        expect(403, post("/trips", passenger.token(), trip));
+        var duplicateSeats = new java.util.HashMap<String, Object>(trip);
+        duplicateSeats.put("seatCodes", List.of("A1", " A1 "));
+        expect(400, post("/trips", owner.token(), duplicateSeats));
+        duplicateSeats.put("seatCodes", List.of("A1", "A1"));
+        expect(400, post("/trips", owner.token(), duplicateSeats));
+        duplicateSeats.put("seatCodes", java.util.Arrays.asList("A1", null));
+        expect(400, post("/trips", owner.token(), duplicateSeats));
+        var wrongRoute = new java.util.HashMap<String, Object>(trip);
+        wrongRoute.put("routeId", catalogRoute(kind(), "Other kind"));
+        expect(400, post("/trips", owner.token(), wrongRoute));
+
+        var created = expect(201, post("/trips", owner.token(), trip));
+        UUID tripId = id(created, "id");
+        assertEquals(2, created.path("availableSeats").asInt());
+        assertEquals(tripId, id(expect(200, get("/trips?routeId=" + route + "&bookableOnly=true", passenger.token())).get(0), "id"));
+        assertEquals(2, expect(200, get("/trips/" + tripId + "/seats", passenger.token())).size());
+        var ticket = expect(201, post("/tickets", passenger.token(), Map.of("tripId", tripId, "seatCode", "A2")));
+        assertEquals("A2", ticket.path("seatCode").asText());
+        assertEquals(new BigDecimal("40.25"), ticket.path("price").decimalValue().setScale(2));
+    }
+
+    @Test
+    void sessionExposesOnlyOwnMembershipsAndStaffDirectoryRequiresAssignmentPermission() throws Exception {
+        var owner = account(false);
+        var admin = account(true);
+        var outsider = account(false);
+        UUID organization = connect(owner, admin);
+        var profile = expect(200, get("/session", owner.token()));
+        assertEquals(owner.id(), id(profile.path("account"), "id"));
+        assertEquals(1, profile.path("organizations").size());
+        assertEquals(organization, id(profile.path("organizations").get(0), "id"));
+        assertTrue(profile.path("organizations").get(0).path("canRepresent").asBoolean());
+        assertTrue(profile.path("organizations").get(0).path("canConfirmMembers").asBoolean());
+        assertTrue(expect(200, get("/session", outsider.token())).path("organizations").isEmpty());
+        String members = "/transporter-organizations/" + organization + "/members";
+        expect(403, get(members, outsider.token()));
+        assertEquals(owner.id(), id(expect(200, get(members, owner.token())).get(0).path("account"), "id"));
+        String staff = "/staff?permission=transporter.registration.decide";
+        expect(403, get(staff, owner.token()));
+        var candidates = expect(200, get(staff, admin.token()));
+        var ids = new java.util.HashSet<UUID>();
+        candidates.forEach(candidate -> ids.add(id(candidate, "id")));
+        assertTrue(ids.contains(admin.id()));
+        assertFalse(ids.contains(outsider.id()));
     }
 
     private UUID catalogRoute(UUID kind, String source) {

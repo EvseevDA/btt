@@ -20,6 +20,11 @@ public class TripSeat {
     protected TripSeat() {
     }
 
+    /** Создаёт место рейса с указанным кодом. */
+    public TripSeat(UUID tripId, String seatCode) {
+        this.id = new Key(tripId, seatCode);
+    }
+
     /**
      * Составной ключ места, уникального в пределах рейса.
      *

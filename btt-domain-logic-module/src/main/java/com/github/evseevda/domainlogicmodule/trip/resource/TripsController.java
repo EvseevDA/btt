@@ -1,6 +1,8 @@
 package com.github.evseevda.domainlogicmodule.trip.resource;
 
 import com.github.evseevda.domainlogic.api.TripsApi;
+import com.github.evseevda.domainlogic.model.CreateTrip;
+import com.github.evseevda.domainlogicmodule.trip.service.TripScheduling;
 import com.github.evseevda.domainlogic.model.TripDto;
 
 import com.github.evseevda.domainlogicmodule.trip.service.TripSearch;
@@ -19,10 +21,12 @@ import java.util.UUID;
 @RestController
 public class TripsController implements TripsApi {
     private final ObjectProvider<TripSearch> services;
+    private final ObjectProvider<TripScheduling> scheduling;
 
     /** Создаёт контроллер и связывает его с прикладным сервисом. */
-    public TripsController(ObjectProvider<TripSearch> services) {
+    public TripsController(ObjectProvider<TripSearch> services, ObjectProvider<TripScheduling> scheduling) {
         this.services = services;
+        this.scheduling = scheduling;
     }
 
 
@@ -52,5 +56,13 @@ public class TripsController implements TripsApi {
         var service = services.getIfAvailable();
         return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
                 : ResponseEntity.ok(service.seats(tripId));
+    }
+
+    /** Сохраняет запись, созданную уполномоченным пользователем. */
+    @Override
+    public ResponseEntity<TripDto> createTrip(CreateTrip form) {
+        var service = scheduling.getIfAvailable();
+        return service == null ? ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build()
+                : ResponseEntity.status(HttpStatus.CREATED).body(service.createTrip(form));
     }
 }

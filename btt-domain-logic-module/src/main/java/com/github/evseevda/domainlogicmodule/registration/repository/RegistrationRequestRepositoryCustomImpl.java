@@ -186,7 +186,8 @@ class RegistrationRequestRepositoryCustomImpl extends JpaQueries implements Regi
                 .transporterId(request.getTransporter() == null ? null : request.getTransporter().getId())
                 .executorId(request.getExecutor() == null ? null : request.getExecutor().getId())
                 .sourceTransporterVersionId(request.getSourceTransporterVersion() == null ? null : request.getSourceTransporterVersion().getId())
-                .submittedAt(date(request.getSubmittedAt()));
+                .submittedAt(date(request.getSubmittedAt()))
+                .workflowActionPending(request.getPendingAction() != null);
         return new Request(dto, request.getPendingAction(), request.getPendingCommandId(), request.getProposedData());
     }
 

@@ -4,7 +4,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.UUID;
+import org.springframework.security.core.GrantedAuthority;
 
 /** Предоставляет идентификатор и разрешения пользователя текущего запроса. */
 public final class CurrentAccount {
@@ -25,6 +27,13 @@ public final class CurrentAccount {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         return authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> authority.getAuthority().equals(permission));
+    }
+
+    /** Возвращает действующие разрешения для интерфейса кабинета. */
+    public static List<String> permissions() {
+        id();
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).sorted().toList();
     }
 
     /** Требует указанное разрешение. При его отсутствии возвращается ошибка 403. */

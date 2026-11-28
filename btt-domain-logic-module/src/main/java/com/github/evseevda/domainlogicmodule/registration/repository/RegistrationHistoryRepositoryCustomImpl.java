@@ -32,10 +32,11 @@ class RegistrationHistoryRepositoryCustomImpl extends JpaQueries implements Regi
 
     /** Читает страницу заявлений с проверкой связи с пользователем или организацией. */
     @Override
-    public List<Request> visibleRequests(UUID actor, List<Integer> types, UUID transporter, Integer status, int limit, int offset) {
+    public List<Request> visibleRequests(UUID actor, List<Integer> types, UUID transporter, Integer type, Integer status, int limit, int offset) {
         TransporterRequestStatus state = status == null ? null : Arrays.stream(TransporterRequestStatus.values())
                 .filter(value -> value.getId() == status).findFirst().orElse(null);
         if (status != null && state == null) return List.of();
+        var filterType = type == null ? null : TransporterRequestType.fromId(type);
         var reviewerTypes = types.isEmpty() ? List.of(TransporterRequestType.INITIAL_REGISTRATION)
                 : types.stream().map(TransporterRequestType::fromId).toList();
         return select("""
@@ -45,10 +46,11 @@ class RegistrationHistoryRepositoryCustomImpl extends JpaQueries implements Regi
                         select m.id from OrganizationMembership m where m.id.organizationId = r.organization.id
                         and m.id.userId = :actor and m.canRepresent)))
                   and (:transporter is null or r.transporter.id = :transporter)
+                  and (:type is null or r.type = :type)
                   and (:state is null or r.status = :state)
                 order by r.createdAt desc, r.id
                 """, TransporterRequest.class).setParameter("actor", actor).setParameter("reviews", !types.isEmpty())
-                .setParameter("types", reviewerTypes).setParameter("transporter", transporter).setParameter("state", state)
+                .setParameter("types", reviewerTypes).setParameter("transporter", transporter).setParameter("state", state).setParameter("type", filterType)
                 .setFirstResult(offset).setMaxResults(limit).getResultList().stream()
                 .map(RegistrationRequestRepositoryCustomImpl::projection).toList();
     }

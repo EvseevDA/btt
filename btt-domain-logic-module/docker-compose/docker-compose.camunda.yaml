@@ -1,0 +1,20 @@
+name: btt
+
+services:
+  zeebe:
+    image: camunda/zeebe:8.8.48
+    environment:
+      CAMUNDA_DATABASE_TYPE: none
+      CAMUNDA_DATA_SECONDARYSTORAGE_TYPE: none
+      CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI: "true"
+      CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED: "false"
+    volumes:
+      - btt_zeebe_data:/usr/local/zeebe/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9600/actuator/health/readiness"]
+      interval: 3s
+      timeout: 3s
+      retries: 25
+
+volumes:
+  btt_zeebe_data:

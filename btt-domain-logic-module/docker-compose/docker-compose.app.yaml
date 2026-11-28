@@ -1,0 +1,33 @@
+name: btt
+
+include:
+  - docker-compose.postgres.yaml
+  - docker-compose.camunda.yaml
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: btt-domain-logic-module/docker-compose/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      zeebe:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BTT_APP_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/btt_business_logic_module_db
+      SPRING_DATASOURCE_USERNAME: ${BTT_DB_USER:-btt}
+      SPRING_DATASOURCE_PASSWORD: ${BTT_DB_PASSWORD:-btt_local}
+      BTT_ZEEBE_ENABLED: "true"
+      BTT_ZEEBE_GRPC_ADDRESS: http://zeebe:26500
+      BTT_ADMIN_USERNAME: ${BTT_ADMIN_USERNAME:-}
+      BTT_ADMIN_EMAIL: ${BTT_ADMIN_EMAIL:-}
+      BTT_ADMIN_PASSWORD: ${BTT_ADMIN_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/8080; printf 'GET / HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read -r status <&3; [[ $$status == *' 200 '* ]]"]
+      interval: 3s
+      timeout: 3s
+      retries: 25

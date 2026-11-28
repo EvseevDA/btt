@@ -4,16 +4,38 @@
 
 ## Запуск портала
 
-Установите Docker Desktop или Docker с Compose. Из корня `btt` задайте учётные данные первого администратора и запустите приложение, PostgreSQL и Zeebe.
+Запустите Docker Desktop или Docker с Compose 2.20.3 или новее. [Документация Compose](https://docs.docker.com/compose/how-tos/multiple-compose-files/include/)
+
+Каталог Docker Compose содержит три файла. [Конфигурации](btt-domain-logic-module/docker-compose)
+
+| Файл | Назначение |
+| --- | --- |
+| `docker-compose.postgres.yaml` | PostgreSQL и том данных |
+| `docker-compose.camunda.yaml` | Camunda Zeebe и том состояния движка |
+| `docker-compose.app.yaml` | Бэкенд и собранный React. Подключает оба инфраструктурных файла через `include`. |
+
+Из корня `btt` задайте учётные данные первого администратора и запустите стек. Для пароля нужно минимум 12 символов.
 
 ```sh
 export BTT_ADMIN_USERNAME=admin
 export BTT_ADMIN_EMAIL=admin@example.test
 export BTT_ADMIN_PASSWORD='замените-на-свой-пароль'
-docker compose -f btt-domain-logic-module/docker-compose/docker-compose.yaml --profile app up -d --build --wait
+compose_file=btt-domain-logic-module/docker-compose/docker-compose.app.yaml
+docker compose -f "$compose_file" up -d --build --wait
 ```
 
-Откройте [http://localhost:8080](http://localhost:8080). Порт можно изменить через `BTT_APP_PORT`. Учетные данные администратора применяются при первом запуске на базе без администратора. Чтобы создать первый рейс, подключите организацию, согласуйте регистрацию её перевозчика, добавьте маршрут в разделе «Администрация», затем опубликуйте рейс в кабинете перевозчика.
+Откройте [http://localhost:8080](http://localhost:8080) и войдите с указанными логином и паролем.
+Администратор создаётся на базе без администратора. Для порта портала используйте `BTT_APP_PORT`, для порта PostgreSQL на хосте — `BTT_DB_PORT` (по умолчанию `5433`).
+
+Эти команды выводят состояние, показывают логи и останавливают стек.
+
+```sh
+docker compose -f "$compose_file" ps
+docker compose -f "$compose_file" logs -f app zeebe postgres
+docker compose -f "$compose_file" down
+```
+
+Данные PostgreSQL и состояние Zeebe хранятся в именованных томах. Чтобы создать первый рейс, подключите организацию, согласуйте регистрацию её перевозчика, добавьте маршрут в разделе «Администрация», затем опубликуйте рейс в кабинете перевозчика.
 
 Справочник маршрутов ведёт администрация портала. Публиковать рейсы может представитель организации с действующей регистрацией перевозчика. Для рейса выбираются маршрут того же вида транспорта, время, тариф и коды мест. Парк отдельных машин в этой версии не ведётся.
 
@@ -96,7 +118,7 @@ mvn -f btt-domain-logic-module/pom.xml package
 Из корня `btt` запустите PostgreSQL и приложение с подключением к базе `btt_business_logic_module_db`:
 
 ```sh
-docker compose -f btt-domain-logic-module/docker-compose/docker-compose.yaml up -d --wait postgres
+docker compose -f btt-domain-logic-module/docker-compose/docker-compose.postgres.yaml up -d --wait postgres
 mvn -f btt-api/pom.xml install
 mvn -f btt-domain-logic-module/pom.xml package
 java -jar btt-domain-logic-module/target/btt-domain-logic-module-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
@@ -105,7 +127,7 @@ java -jar btt-domain-logic-module/target/btt-domain-logic-module-0.0.1-SNAPSHOT.
 После запуска приложения историю миграций можно посмотреть из второго терминала:
 
 ```sh
-docker compose -f btt-domain-logic-module/docker-compose/docker-compose.yaml exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank"'
+docker compose -f btt-domain-logic-module/docker-compose/docker-compose.postgres.yaml exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank"'
 ```
 
 Контейнер хранит данные в именованном томе. Порт на хосте по умолчанию — `5433`.
